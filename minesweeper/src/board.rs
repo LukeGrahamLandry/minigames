@@ -22,7 +22,7 @@ pub enum Display {
     Open {
         adjacent_mines: usize,
     },
-    Mine,
+    ShowMine,
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
@@ -43,16 +43,41 @@ impl Board {
         board
     }
 
-    pub fn chain_reveal(&mut self, pos: Pos) {
+    pub fn chain_reveal(&mut self, start: Pos) {
+        if self[start].is_mine {
+            self[start].state = Display::ShowMine;
+            return;
+        }
+
         let mut seen = HashSet::new();
-        let mut next = vec![pos];
+        let mut next = vec![start];
         while let Some(pos) = next.pop() {
+            if seen.contains(&pos) {
+                continue;
+            }
             seen.insert(pos);
+            if let Display::Closed = self[pos].state {
+                let adjacent_mines = self.count_adjacent_mines(pos);
+                self[pos].state = Display::Open { adjacent_mines };
+                if adjacent_mines == 0 {
+                    next.extend(self.iter_adjacent(pos));
+                }
+            }
+        }
+    }
+
+    pub fn toggle_flag(&mut self, pos: Pos) {
+        match self[pos].state {
+            Display::Closed => self[pos].state = Display::Flagged,
+            Display::Flagged => self[pos].state = Display::Closed,
+            Display::Open { .. } | Display::ShowMine => {}
         }
     }
 
     fn count_adjacent_mines(&self, pos: Pos) -> usize {
-        self.adjacent(pos).filter(|pos| self[*pos].is_mine).count()
+        self.iter_adjacent(pos)
+            .filter(|pos| self[*pos].is_mine)
+            .count()
     }
 
     fn place_mines(&mut self, count: usize) {
@@ -69,7 +94,7 @@ impl Board {
         }
     }
 
-    fn adjacent(&self, pos: Pos) -> impl Iterator<Item = Pos> + '_ {
+    fn iter_adjacent(&self, pos: Pos) -> impl Iterator<Item = Pos> + '_ {
         [
             (1, 0),
             (-1, 0),
