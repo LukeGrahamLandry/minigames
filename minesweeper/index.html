@@ -1,0 +1,12 @@
+<html>
+  <head>
+    <link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="s"/>
+    <script>
+        document.addEventListener("contextmenu", (e) => {
+            if (e.target.tagName == "CANVAS") e.preventDefault(); 
+        });
+        // TODO: resize the canvas with the window
+        // TODO: chrome shows the text wrong (but safari works)
+    </script>
+  </head>
+</html>
