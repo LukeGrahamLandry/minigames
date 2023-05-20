@@ -6,6 +6,10 @@ pub struct Board {
     squares: Vec<Square>,
     pub width: usize,
     pub height: usize,
+    pub total_mines: isize,
+    pub flags_placed: isize,
+    pub exploded_mines: isize,
+    pub hidden_squares: isize,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -19,9 +23,8 @@ pub enum Display {
     #[default]
     Closed,
     Flagged,
-    Open {
-        adjacent_mines: usize,
-    },
+    OpenNearMines(usize),
+    OpenNoMines,
     ShowMine,
 }
 
@@ -32,35 +35,52 @@ pub struct Pos {
 }
 
 impl Board {
-    pub fn new(width: usize, height: usize, mine_count: usize) -> Board {
-        assert!(width > 0 && height > 0);
+    pub fn new(width: usize, height: usize, total_mines: usize) -> Board {
+        assert!(width > 0 && height > 0 && total_mines < width * height);
         let mut board = Board {
             squares: vec![Square::default(); width * height],
             width,
             height,
+            total_mines: total_mines as isize,
+            flags_placed: 0,
+            exploded_mines: 0,
+            hidden_squares: (width * height) as isize,
         };
-        board.place_mines(mine_count);
+        board.place_mines(total_mines);
         board
     }
 
-    pub fn chain_reveal(&mut self, start: Pos) {
-        if self[start].is_mine {
-            self[start].state = Display::ShowMine;
+    pub fn reveal_square(&mut self, start: Pos) {
+        // Don't accidentally blow up a flagged mine
+        if let Display::Flagged = self[start].state {
             return;
         }
 
+        // Game over
+        if self[start].is_mine {
+            self[start].state = Display::ShowMine;
+            self.exploded_mines += 1;
+            self.hidden_squares -= 1;
+            return;
+        }
+
+        self.chain_reveal(start);
+    }
+
+    fn chain_reveal(&mut self, start: Pos) {
         let mut seen = HashSet::new();
         let mut next = vec![start];
         while let Some(pos) = next.pop() {
-            if seen.contains(&pos) {
-                continue;
-            }
             seen.insert(pos);
             if let Display::Closed = self[pos].state {
+                assert!(!self[pos].is_mine, "Chain reveal hit a mine.");
+                self.hidden_squares -= 1;
                 let adjacent_mines = self.count_adjacent_mines(pos);
-                self[pos].state = Display::Open { adjacent_mines };
                 if adjacent_mines == 0 {
-                    next.extend(self.iter_adjacent(pos));
+                    self[pos].state = Display::OpenNoMines;
+                    next.extend(self.iter_adjacent(pos).filter(|p| !seen.contains(p)));
+                } else {
+                    self[pos].state = Display::OpenNearMines(adjacent_mines);
                 }
             }
         }
@@ -68,9 +88,17 @@ impl Board {
 
     pub fn toggle_flag(&mut self, pos: Pos) {
         match self[pos].state {
-            Display::Closed => self[pos].state = Display::Flagged,
-            Display::Flagged => self[pos].state = Display::Closed,
-            Display::Open { .. } | Display::ShowMine => {}
+            Display::Closed => {
+                self[pos].state = Display::Flagged;
+                self.flags_placed += 1;
+            }
+            Display::Flagged => {
+                self[pos].state = Display::Closed;
+                self.flags_placed -= 1;
+            }
+            Display::OpenNearMines { .. } | Display::ShowMine | Display::OpenNoMines => {
+                unreachable!()
+            }
         }
     }
 
@@ -80,10 +108,14 @@ impl Board {
             .count()
     }
 
-    fn place_mines(&mut self, count: usize) {
-        for _ in 0..count {
+    fn place_mines(&mut self, mut count: usize) {
+        while count > 0 {
             let pos = self.rand_pos();
+            if self[pos].is_mine {
+                continue;
+            }
             self[pos].is_mine = true;
+            count -= 1;
         }
     }
 
