@@ -3,18 +3,21 @@ use std::mem;
 use bracket_lib::prelude::*;
 use rand::random;
 
+#[derive(Clone)]
 pub struct World {
     pub player: Snake,
     pub food: Vec<Food>,
     pub size: Point,
 }
 
+#[derive(Clone)]
 pub struct Snake {
     pub pos: PointF,
     pub dir: Direction,
     pub body: Vec<PointF>,
 }
 
+#[derive(Clone)]
 pub struct Food {
     pub pos: PointF,
 }
@@ -26,18 +29,19 @@ impl World {
     pub fn new(size: Point) -> World {
         let mut w = World {
             player: Snake {
-                pos: PointF::new(0.0, 10.0),
+                pos: PointF::new((size.x / 2) as f32, (size.y / 2) as f32 + 2.0),
                 dir: Direction::Right,
                 body: vec![],
             },
             food: vec![],
             size,
         };
+
         w.spawn_food();
         w
     }
 
-    pub fn update(&mut self, dt: f32) {
+    pub fn update(&mut self, dt: f32) -> GameResult {
         if random::<f32>() < (FOOD_CHANCE * dt) {
             self.spawn_food();
         }
@@ -50,12 +54,33 @@ impl World {
                 self.player.grow();
             }
         }
+
+        if self.should_die(&self.player) {
+            GameResult::Lose
+        } else {
+            GameResult::Continue
+        }
     }
 
     pub fn spawn_food(&mut self) {
         self.food.push(Food {
             pos: rand_pos(self.size),
         })
+    }
+
+    fn should_die(&self, snake: &Snake) -> bool {
+        // check player tail
+        for part in &self.player.body {
+            if length_sqr(*part - snake.pos) < 0.5 {
+                return true;
+            }
+        }
+
+        // check screen edge
+        snake.pos.x < -1.0
+            || snake.pos.x > self.size.x as f32
+            || snake.pos.y < -1.0
+            || snake.pos.y > self.size.y as f32
     }
 }
 
@@ -75,9 +100,14 @@ impl Snake {
     }
 
     fn grow(&mut self) {
-        let last = self.body.last().unwrap_or(&self.pos);
-        self.body.push(*last);
+        self.body.push(PointF::new(-1.0, -1.0));
     }
+}
+
+#[derive(Eq, PartialEq)]
+pub enum GameResult {
+    Continue,
+    Lose,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

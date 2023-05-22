@@ -1,59 +1,93 @@
-use crate::render::render_world;
-use crate::simulate::{Direction, World};
+use crate::render::render;
+use crate::simulate::{Direction, GameResult, World};
 use bracket_lib::prelude::*;
-use std::ops::DerefMut;
 
 mod render;
 mod simulate;
 
+const SCREEN_SIZE: Point = Point { x: 80, y: 50 };
+
 fn main() {
-    let context = BTermBuilder::simple80x50()
+    let context = BTermBuilder::simple(SCREEN_SIZE.x, SCREEN_SIZE.y)
+        .unwrap()
         .with_title("Snake")
-        .with_fancy_console(80, 50, "terminal8x8.png")
+        .with_fancy_console(SCREEN_SIZE.x, SCREEN_SIZE.y, "terminal8x8.png")
+        .with_fps_cap(30.0)
         .with_vsync(true)
         .build()
         .unwrap();
 
-    main_loop(
-        context,
-        Game {
-            world: World::new(Point::new(80, 50)),
-        },
-    )
-    .unwrap()
+    main_loop(context, State::Initial).unwrap()
 }
 
-struct Game {
-    world: World,
+enum State {
+    Initial,
+    Lose,
+    Playing(World),
+    Paused(World),
 }
 
-impl GameState for Game {
+impl GameState for State {
     fn tick(&mut self, ctx: &mut BTerm) {
-        self.input(ctx);
-        self.world.update(1.0);
-        self.render(ctx);
-    }
-}
+        match self {
+            State::Playing(world) => {
+                if let Some(VirtualKeyCode::Space) = ctx.key {
+                    *self = State::Paused(world.clone());
+                    return;
+                }
 
-impl Game {
-    fn input(&mut self, ctx: &mut BTerm) {
-        match ctx.key {
-            None => {}
-            Some(VirtualKeyCode::D) => self.world.player.input(Direction::Right),
-            Some(VirtualKeyCode::A) => self.world.player.input(Direction::Left),
-            Some(VirtualKeyCode::W) => self.world.player.input(Direction::Up),
-            Some(VirtualKeyCode::S) => self.world.player.input(Direction::Down),
-            _ => {}
+                input(world, ctx);
+                if world.update(1.0) == GameResult::Lose {
+                    *self = State::Lose;
+                } else {
+                    render(world, ctx);
+                }
+            }
+            State::Initial => {
+                ctx.print_color_centered(SCREEN_SIZE.y / 2 + 2, SKY_BLUE, BLACK, "►");
+                if should_unpause(ctx, "start") {
+                    *self = State::Playing(World::new(SCREEN_SIZE));
+                }
+            }
+            State::Paused(world) => {
+                if should_unpause(ctx, "resume") {
+                    *self = State::Playing(world.clone());
+                }
+            }
+            State::Lose => {
+                ctx.print_color_centered(SCREEN_SIZE.y / 2 - 2, RED, BLACK, "YOU LOSE.");
+                ctx.print_color_centered(SCREEN_SIZE.y / 2 + 2, SKY_BLUE, BLACK, "►");
+                if should_unpause(ctx, "try again") {
+                    *self = State::Playing(World::new(SCREEN_SIZE));
+                }
+            }
         }
     }
+}
 
-    fn render(&mut self, ctx: &mut BTerm) {
-        ctx.cls();
-        ctx.print(0, 0, format!("Score: {}", self.world.player.body.len()));
-        let mut batch = DrawBatch::new();
-        batch.target(1);
-        render_world(batch.deref_mut(), &self.world);
-        batch.submit(0).expect("Batch error");
-        render_draw_buffer(ctx).expect("Render error");
+const INSTRUCTIONS: [&str; 4] = [
+    "Use the WASD keys to change direction.",
+    "Collect food to grow longer.",
+    "Avoid hitting your tail or going off the screen.",
+    "Press SPACE to pause.",
+];
+
+fn should_unpause(ctx: &mut BTerm, action: &str) -> bool {
+    INSTRUCTIONS
+        .into_iter()
+        .enumerate()
+        .for_each(|(i, msg)| ctx.print_centered(4 + (i * 2), msg));
+
+    ctx.print_centered(SCREEN_SIZE.y / 2, format!("Press SPACE to {}.", action));
+    matches!(ctx.key, Some(VirtualKeyCode::Space))
+}
+
+fn input(world: &mut World, ctx: &mut BTerm) {
+    match ctx.key {
+        Some(VirtualKeyCode::D) => world.player.input(Direction::Right),
+        Some(VirtualKeyCode::A) => world.player.input(Direction::Left),
+        Some(VirtualKeyCode::W) => world.player.input(Direction::Up),
+        Some(VirtualKeyCode::S) => world.player.input(Direction::Down),
+        _ => {}
     }
 }
