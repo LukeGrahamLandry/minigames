@@ -1,4 +1,4 @@
-use crate::simulate::{Direction, World};
+use crate::simulate::{Direction, Snake, World};
 use bracket_lib::prelude::*;
 use std::ops::DerefMut;
 
@@ -15,14 +15,20 @@ pub fn render(world: &mut World, ctx: &mut BTerm) {
 }
 
 fn render_world(frame: &mut DrawBatch, world: &World) {
-    for part in &world.player.body {
-        draw(frame, *part, '■', SKY_BLUE);
+    draw_snake(frame, &world.player, SKY_BLUE);
+    for snake in &world.computer_snakes {
+        draw_snake(frame, snake, RED);
     }
-    draw(frame, world.player.pos, arrow(world.player.dir), SKY_BLUE);
-
     for food in &world.food {
         draw(frame, food.pos, '*', GREEN);
     }
+}
+
+fn draw_snake(frame: &mut DrawBatch, snake: &Snake, colour: (u8, u8, u8)) {
+    for part in &snake.body {
+        draw(frame, *part, '■', colour);
+    }
+    draw(frame, snake.pos, arrow(snake.dir), colour);
 }
 
 fn draw(frame: &mut DrawBatch, pos: PointF, glyph: char, colour: (u8, u8, u8)) {
