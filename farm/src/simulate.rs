@@ -1,34 +1,34 @@
-use crate::config::{CropType, CROP_SIZE};
+use crate::config::*;
 use nannou::prelude::*;
 
 pub struct World {
-    player: Player,
-    farm: Farm,
-    shops: Vec<Shop>,
-    cash: usize,
+    pub player: Player,
+    pub farm: Farm,
+    pub shops: Vec<Shop>,
+    pub cash: usize,
 }
 
 pub struct Farm {
-    crops: Vec<Crop>,
-    area: Rect,
+    pub crops: Vec<Crop>,
+    pub area: Rect,
 }
 
 pub struct Crop {
-    kind: &'static CropType,
-    timer: f32,
-    area: Rect,
+    pub kind: &'static CropType,
+    pub timer: f32,
+    pub area: Rect,
 }
 
 pub struct Shop {
-    contents: InvItem,
-    area: Rect,
-    price: usize,
+    pub contents: InvItem,
+    pub area: Rect,
+    pub price: usize,
 }
 
 pub struct Player {
-    pos: Vec2,
-    dir: Vec2,
-    inventory: InvItem,
+    pub pos: Vec2,
+    pub dir: Vec2,
+    pub inventory: InvItem,
 }
 
 #[derive(Copy, Clone)]
@@ -39,9 +39,38 @@ pub enum InvItem {
 }
 
 impl World {
+    pub fn new() -> World {
+        let mut w = World {
+            player: Player {
+                pos: Default::default(),
+                dir: Default::default(),
+                inventory: InvItem::None,
+            },
+            farm: Farm {
+                crops: vec![],
+                area: Rect::from_xy_wh(Point2::new(-250.0, -50.0), Vec2::new(400.0, 400.0)),
+            },
+            shops: vec![],
+            cash: 5,
+        };
+
+        for (i, crop) in CROPS.iter().enumerate() {
+            w.shops.push(Shop {
+                contents: InvItem::Seed(crop),
+                area: Rect::from_xy_wh(
+                    Point2::new(0.0, i as f32 * CROP_SIZE * 2.0),
+                    Vec2::new(CROP_SIZE, CROP_SIZE),
+                ),
+                price: crop.seed_price,
+            });
+        }
+
+        w
+    }
+
     pub fn update(&mut self, dt: f32) {
         self.farm.update(dt);
-        self.player.pos += self.player.dir;
+        self.player.pos += self.player.dir * dt * PLAYER_SPEED;
     }
 
     pub fn interact(&mut self) {
@@ -55,7 +84,7 @@ impl World {
                     }
                 }
 
-                self.farm.interact(&mut self.player);
+                self.farm.try_harvest(&mut self.player);
             }
             InvItem::Seed(kind) => {
                 let on_farm = self.player.collides(&self.farm.area);
@@ -79,7 +108,7 @@ impl Farm {
     }
 
     /// If the player is over a ripe crop, remove it and put in in their inventory.
-    fn interact(&mut self, player: &mut Player) {
+    fn try_harvest(&mut self, player: &mut Player) {
         assert!(matches!(player.inventory, InvItem::None)); // TODO: change when i have watering can, etc.
         if !player.collides(&self.area) {
             return;
@@ -118,7 +147,7 @@ impl Crop {
         }
     }
 
-    fn is_ripe(&self) -> bool {
+    pub fn is_ripe(&self) -> bool {
         self.timer > self.kind.growth_time
     }
 
@@ -130,5 +159,9 @@ impl Crop {
 impl Player {
     fn collides(&self, area: &Rect) -> bool {
         area.contains(self.pos)
+    }
+
+    pub fn area(&self) -> Rect {
+        Rect::from_xy_wh(self.pos, Vec2::new(CROP_SIZE, CROP_SIZE))
     }
 }
