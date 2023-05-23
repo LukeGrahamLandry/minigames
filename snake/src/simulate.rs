@@ -124,6 +124,7 @@ impl World {
             }
             if self.should_die(&self.computer_snakes[i], false) {
                 for pos in &self.computer_snakes[i].body {
+                    // Since new body parts are put at (-1, -1), we check that the pos is on screen before putting food there.
                     if random::<f32>() < SNAKE_DROP_FOOD_CHANCE && pos.x > 0.0 && pos.y > 0.0 {
                         self.food.push(Food { pos: *pos });
                     }
@@ -132,6 +133,10 @@ impl World {
                 self.computer_snakes.remove(i);
             }
         });
+
+        // Since they don't die on hitting the bottom, remove them if the whole body is off the screen.
+        self.computer_snakes
+            .retain(|snake| snake.pos.y < self.size.y as f32 + self.enemy_size as f32)
     }
 }
 
