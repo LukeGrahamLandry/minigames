@@ -25,18 +25,21 @@ fn model(_app: &App) -> Game {
 
 fn event(app: &App, game: &mut Game, event: Event) {
     match game {
-        Game::Playing(world) => {
-            if let Event::WindowEvent { simple, .. } = &event {
-                if let Some(WindowEvent::KeyPressed(Key::G)) = simple {
-                    *game = Game::Pause(world.clone());
-                    return;
-                }
-
-                if let Some(WindowEvent::KeyPressed(Key::Space)) = simple {
-                    world.interact();
-                }
+        Game::Playing(world) => match event {
+            Event::WindowEvent {
+                simple: Some(KeyPressed(Key::G)),
+                ..
+            } => {
+                *game = Game::Pause(world.clone());
             }
-            if let Event::Update(delta) = &event {
+            Event::WindowEvent {
+                simple: Some(KeyPressed(Key::Space)),
+                ..
+            } => {
+                world.interact();
+            }
+            Event::DeviceEvent(_, _) => {}
+            Event::Update(delta) => {
                 user_input(app, world);
                 world.update(delta.since_last.as_secs_f32());
                 if world.game_over() {
@@ -45,19 +48,25 @@ fn event(app: &App, game: &mut Game, event: Event) {
                     }
                 }
             }
-        }
+            _ => {}
+        },
         Game::Initial | Game::GameOver { .. } => {
-            if let Event::WindowEvent { simple, .. } = &event {
-                if let Some(WindowEvent::KeyPressed(Key::G)) = simple {
-                    *game = Game::Playing(World::new());
-                }
+            if let Event::WindowEvent {
+                simple: Some(KeyPressed(Key::G)),
+                ..
+            } = &event
+            {
+                *game = Game::Playing(World::new());
             }
         }
+
         Game::Pause(world) => {
-            if let Event::WindowEvent { simple, .. } = &event {
-                if let Some(WindowEvent::KeyPressed(Key::G)) = simple {
-                    *game = Game::Playing(world.clone());
-                }
+            if let Event::WindowEvent {
+                simple: Some(KeyPressed(Key::G)),
+                ..
+            } = &event
+            {
+                *game = Game::Playing(world.clone());
             }
         }
     }

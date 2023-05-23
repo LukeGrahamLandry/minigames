@@ -1,11 +1,19 @@
+use crate::simulate::InvItem;
 use nannou::color::{GREEN, RED, WHITE, YELLOW};
 
 pub const CROP_SIZE: f32 = 30.0;
 pub const PLAYER_SPEED: f32 = 200.0;
 pub const BASE_ROUND_TIMER: f32 = 60.0;
-pub const MIN_ROUND_TIMER: f32 = 15.0;
-pub const ROUND_TIME_DECREMENT: f32 = 5.0;
-pub const REQUEST_COUNT: (usize, usize) = (4, 8);
+pub const MIN_ROUND_TIMER: f32 = 20.0;
+pub const ROUND_TIME_DECREMENT: f32 = 3.0;
+pub const REQUEST_COUNT: (usize, usize) = (4, 7);
+pub const DROUGHT_CHANCE: f32 = 0.03;
+pub const DROUGHT_CHANCE_SCALING: f32 = 0.003;
+pub const WATER_TIME: f32 = 5.0;
+pub const CROW_CHANCE: f32 = 0.05;
+pub const CROW_CHANCE_SCALING: f32 = 0.001;
+pub const CROW_TIME: f32 = 5.0;
+pub const CROW_MAX_HP: usize = 3;
 
 #[derive(PartialEq)]
 pub struct CropType {
@@ -33,7 +41,7 @@ pub const CROPS: [CropType; 4] = [
     },
     CropType {
         name: "pizza",
-        growth_time: 30.0,
+        growth_time: 25.0,
         seed_price: 15,
         sale_price: 20,
         colour: YELLOW,
@@ -42,7 +50,15 @@ pub const CROPS: [CropType; 4] = [
         name: "acorn",
         growth_time: 60.0,
         seed_price: 30,
-        sale_price: 50,
+        sale_price: 60,
         colour: GREEN,
     },
+];
+
+pub const STARTING_SHELVES: [InvItem; 5] = [
+    InvItem::WateringCan,
+    InvItem::CrowBaton,
+    InvItem::None,
+    InvItem::None,
+    InvItem::None,
 ];

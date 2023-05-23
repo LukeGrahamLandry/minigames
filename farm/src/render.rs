@@ -1,3 +1,4 @@
+use nannou::color;
 use nannou::prelude::*;
 
 use crate::config::CROP_SIZE;
@@ -31,11 +32,21 @@ pub fn render_simple(world: &World, draw: &Draw) {
         } else {
             draw_item(draw, InvItem::Seed(crop.kind), &crop.area, 1.0);
         }
+        if crop.needs_water {
+            draw.rect()
+                .color(BLUE)
+                .xy(crop.area.xy() + Vec2::new(CROP_SIZE / 2.0, CROP_SIZE / 2.0))
+                .wh(crop.area.wh() * 0.2);
+        }
     }
 
     for shop in &world.shops {
         draw.rect()
-            .color(LIME)
+            .color(if world.cash >= shop.price {
+                LIME
+            } else {
+                DARKCYAN
+            })
             .xy(shop.area.xy())
             .wh(shop.area.wh());
 
@@ -46,12 +57,33 @@ pub fn render_simple(world: &World, draw: &Draw) {
             .font_size(15);
     }
 
+    for shelf in &world.shelves {
+        draw.rect()
+            .color(LIGHTBLUE)
+            .xy(shelf.area.xy())
+            .wh(shelf.area.wh());
+
+        draw_item(draw, shelf.contents, &shelf.area, 1.0);
+
+        if shelf.crow_hp > 0 {
+            draw.rect()
+                .color(ORANGE)
+                .xy(shelf.area.xy() + Vec2::new(CROP_SIZE / 2.0, CROP_SIZE / 2.0))
+                .wh(shelf.area.wh() * 0.2 * (shelf.crow_hp as f32 / 2.0));
+        }
+    }
+
     draw.rect()
-        .color(BLACK)
+        .color(srgba8(0, 0, 0, 230))
         .xy(world.player.pos)
         .wh(Vec2::new(CROP_SIZE, CROP_SIZE));
 
     draw_item(draw, world.player.inventory, &world.player.area(), 1.0);
+
+    draw.ellipse()
+        .color(LIGHTCORAL)
+        .xy(world.player.pos)
+        .wh(Vec2::new(5.0, 5.0));
 
     draw.text(&format!("Money: {}", world.cash))
         .color(BLACK)
@@ -75,7 +107,7 @@ fn draw_item(draw: &Draw, item: InvItem, area: &Rect, scale: f32) {
         InvItem::Seed(crop) => {
             draw.tri()
                 .color(crop.colour)
-                .xy(area.xy() + Vec2::new(CROP_SIZE, 0.0))
+                .xy(area.xy() + Vec2::new(CROP_SIZE * 0.4, 0.0))
                 .wh(area.wh() * scale);
         }
         InvItem::Crop(crop) => {
@@ -83,6 +115,18 @@ fn draw_item(draw: &Draw, item: InvItem, area: &Rect, scale: f32) {
                 .color(crop.colour)
                 .xy(area.xy())
                 .wh(area.wh() * scale);
+        }
+        InvItem::WateringCan => {
+            draw.rect()
+                .color(BLUE)
+                .xy(area.xy())
+                .wh(area.wh() * scale * 0.8);
+        }
+        InvItem::CrowBaton => {
+            draw.rect()
+                .color(ORANGE)
+                .xy(area.xy())
+                .wh(area.wh() * scale * 0.8);
         }
     }
 }
