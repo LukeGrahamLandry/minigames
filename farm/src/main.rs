@@ -1,7 +1,7 @@
 use nannou::prelude::*;
 use nannou::winit::event::VirtualKeyCode;
 
-use crate::render::render;
+use crate::render::render_simple;
 use crate::simulate::World;
 
 mod config;
@@ -13,17 +13,25 @@ fn main() {
 }
 
 enum Game {
+    Initial,
     Playing(World),
+    Pause(World),
+    GameOver { round: usize },
 }
 
 fn model(_app: &App) -> Game {
-    Game::Playing(World::new())
+    Game::Initial
 }
 
 fn event(app: &App, game: &mut Game, event: Event) {
     match game {
         Game::Playing(world) => {
             if let Event::WindowEvent { simple, .. } = &event {
+                if let Some(WindowEvent::KeyPressed(Key::G)) = simple {
+                    *game = Game::Pause(world.clone());
+                    return;
+                }
+
                 if let Some(WindowEvent::KeyPressed(Key::Space)) = simple {
                     world.interact();
                 }
@@ -31,6 +39,25 @@ fn event(app: &App, game: &mut Game, event: Event) {
             if let Event::Update(delta) = &event {
                 user_input(app, world);
                 world.update(delta.since_last.as_secs_f32());
+                if world.game_over() {
+                    *game = Game::GameOver {
+                        round: world.round_number,
+                    }
+                }
+            }
+        }
+        Game::Initial | Game::GameOver { .. } => {
+            if let Event::WindowEvent { simple, .. } = &event {
+                if let Some(WindowEvent::KeyPressed(Key::G)) = simple {
+                    *game = Game::Playing(World::new());
+                }
+            }
+        }
+        Game::Pause(world) => {
+            if let Event::WindowEvent { simple, .. } = &event {
+                if let Some(WindowEvent::KeyPressed(Key::G)) = simple {
+                    *game = Game::Playing(world.clone());
+                }
             }
         }
     }
@@ -60,13 +87,30 @@ fn dir(key: VirtualKeyCode) -> Option<Vec2> {
     .map(|(x, y)| Vec2::new(x, y))
 }
 
+// Feels clever to not rerender the world when paused but still show it behind the text
+// by just not drawing the blank background but that makes the text look terrible for some reason.
 fn view(app: &App, game: &Game, frame: Frame) {
+    let draw = app.draw();
     match game {
         Game::Playing(world) => {
-            let draw = app.draw();
             draw.background().color(GRAY);
-            render(world, &draw);
-            draw.to_frame(app, &frame).unwrap();
+            render_simple(world, &draw);
+        }
+        Game::Initial => {
+            draw.text("Press G to start a new game.");
+            draw.text("You can press G again to pause the game if you need a break!")
+                .y(-20.0);
+        }
+        Game::Pause(_) => {
+            draw.text("Press G to continue.");
+            draw.text("Game paused!").y(20.0);
+        }
+        Game::GameOver { round } => {
+            draw.text("Press G to try again.");
+            draw.text(&format!("You survived until round {}.", round))
+                .color(RED)
+                .y(20.0);
         }
     }
+    draw.to_frame(app, &frame).unwrap();
 }

@@ -1,8 +1,13 @@
 use nannou::color::{GREEN, RED, WHITE, YELLOW};
 
 pub const CROP_SIZE: f32 = 30.0;
-pub const PLAYER_SPEED: f32 = 150.0;
+pub const PLAYER_SPEED: f32 = 200.0;
+pub const BASE_ROUND_TIMER: f32 = 60.0;
+pub const MIN_ROUND_TIMER: f32 = 15.0;
+pub const ROUND_TIME_DECREMENT: f32 = 5.0;
+pub const REQUEST_COUNT: (usize, usize) = (4, 8);
 
+#[derive(PartialEq)]
 pub struct CropType {
     pub name: &'static str,
     pub growth_time: f32,
