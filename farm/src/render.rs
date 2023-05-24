@@ -1,7 +1,7 @@
 use nannou::color;
 use nannou::prelude::*;
 
-use crate::config::CROP_SIZE;
+use crate::config::{CROP_SIZE, SPRINKLER_RANGE};
 use crate::simulate::{Crop, InvItem, World};
 
 pub fn render_simple(world: &World, draw: &Draw) {
@@ -26,6 +26,14 @@ pub fn render_simple(world: &World, draw: &Draw) {
         tx += CROP_SIZE
     }
 
+    for sprinkler in &world.farm.sprinklers {
+        draw_item(draw, InvItem::Sprinkler, sprinkler, 1.0);
+        draw.ellipse()
+            .color(srgba8(0, 0, 255, 25))
+            .xy(sprinkler.xy())
+            .radius(SPRINKLER_RANGE);
+    }
+
     for crop in &world.farm.crops {
         if crop.is_ripe() {
             draw_item(draw, InvItem::Crop(crop.kind), &crop.area, 1.0);
@@ -36,7 +44,8 @@ pub fn render_simple(world: &World, draw: &Draw) {
             draw.rect()
                 .color(BLUE)
                 .xy(crop.area.xy() + Vec2::new(CROP_SIZE / 2.0, CROP_SIZE / 2.0))
-                .wh(crop.area.wh() * 0.2);
+                .wh(crop.area.wh() * 0.2)
+                .z(2.0); // hazard modifiers render above the player
         }
     }
 
@@ -69,7 +78,16 @@ pub fn render_simple(world: &World, draw: &Draw) {
             draw.rect()
                 .color(ORANGE)
                 .xy(shelf.area.xy() + Vec2::new(CROP_SIZE / 2.0, CROP_SIZE / 2.0))
-                .wh(shelf.area.wh() * 0.2 * (shelf.crow_hp as f32 / 2.0));
+                .wh(shelf.area.wh() * (0.15 * (shelf.crow_hp as f32 / 2.0) + 0.1))
+                .z(2.0); // hazard modifiers render above the player
+        }
+
+        if shelf.has_scarecrow {
+            draw.rect()
+                .quaternion(Quat::from_rotation_z(PI / 4.0))
+                .color(DARKORANGE)
+                .xy(shelf.area.xy() - Vec2::new(CROP_SIZE / 2.0, CROP_SIZE / 2.0))
+                .wh(shelf.area.wh() * 0.25);
         }
     }
 
@@ -127,6 +145,32 @@ fn draw_item(draw: &Draw, item: InvItem, area: &Rect, scale: f32) {
                 .color(ORANGE)
                 .xy(area.xy())
                 .wh(area.wh() * scale * 0.8);
+        }
+        InvItem::Shelf => {
+            draw.rect()
+                .color(SKYBLUE)
+                .xy(area.xy())
+                .wh(area.wh() * scale * 0.8);
+        }
+        InvItem::ScareCrow => {
+            draw.rect()
+                .quaternion(Quat::from_rotation_z(PI / 4.0))
+                .color(ORANGE)
+                .xy(area.xy())
+                .wh(area.wh() * scale * 0.6);
+        }
+        InvItem::Sprinkler => {
+            draw.rect()
+                .quaternion(Quat::from_rotation_z(PI / 4.0))
+                .color(BLUE)
+                .xy(area.xy())
+                .wh(area.wh() * scale * 0.6);
+        }
+        InvItem::Fertalizer => {
+            draw.ellipse()
+                .color(BROWN)
+                .xy(area.xy())
+                .wh(area.wh() * scale * 0.5);
         }
     }
 }

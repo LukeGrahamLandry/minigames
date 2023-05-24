@@ -18,6 +18,7 @@ pub struct World {
 pub struct Farm {
     pub crops: Vec<Crop>,
     pub area: Rect,
+    pub sprinklers: Vec<Rect>,
 }
 
 #[derive(Clone)]
@@ -42,6 +43,7 @@ pub struct Shelf {
     pub area: Rect,
     pub crow_hp: usize,
     crow_timer: f32,
+    pub has_scarecrow: bool,
 }
 
 #[derive(Clone)]
@@ -64,6 +66,10 @@ pub enum InvItem {
     Crop(&'static CropType),
     WateringCan,
     CrowBaton,
+    Shelf,
+    ScareCrow,
+    Sprinkler,
+    Fertalizer,
 }
 
 // TODO: minigame for gold where you click targets with the mouse if you dont use the interact button for a few seconds
@@ -79,10 +85,11 @@ impl World {
             farm: Farm {
                 crops: vec![],
                 area: Rect::from_xy_wh(Point2::new(-150.0, 0.0), Vec2::new(400.0, 400.0)),
+                sprinklers: vec![],
             },
             shops: vec![],
             shelves: vec![],
-            cash: 5,
+            cash: STARTING_CASH,
             truck: Truck {
                 area: Rect::from_xy_wh(Point2::new(-200.0, 300.0), Vec2::new(200.0, 100.0)),
                 wants: vec![],
@@ -101,6 +108,19 @@ impl World {
                 price: crop.seed_price,
             });
         }
+        for (i, (item, price)) in SHOPS.iter().enumerate() {
+            w.shops.push(Shop {
+                contents: *item,
+                area: Rect::from_xy_wh(
+                    Point2::new(
+                        -400.0 - (CROP_SIZE * 2.0),
+                        (i as f32 * CROP_SIZE * -2.0) + 180.0,
+                    ),
+                    Vec2::new(CROP_SIZE, CROP_SIZE),
+                ),
+                price: *price,
+            });
+        }
         for (i, item) in STARTING_SHELVES.iter().enumerate() {
             w.shelves.push(Shelf {
                 contents: *item,
@@ -110,6 +130,7 @@ impl World {
                 ),
                 crow_hp: 0,
                 crow_timer: 0.0,
+                has_scarecrow: false,
             });
         }
 
@@ -134,7 +155,7 @@ impl World {
                     shelf.contents = InvItem::None;
                     shelf.crow_hp = 0;
                 }
-            } else if !shelf.is_empty() && random_f32() < crow_chance * dt {
+            } else if !shelf.has_scarecrow && !shelf.is_empty() && random_f32() < crow_chance * dt {
                 shelf.crow_hp = CROW_MAX_HP;
                 shelf.crow_timer = CROW_TIME;
             }
@@ -187,14 +208,46 @@ impl World {
             InvItem::WateringCan => {
                 self.farm.try_water(self.player.pos);
             }
-            InvItem::CrowBaton => {} // handled by try_interact_shelf
+            InvItem::CrowBaton | InvItem::ScareCrow => {} // handled by try_interact_shelf
+            InvItem::Shelf => {
+                let available =
+                    !self.player.collides(&self.farm.area) && self.free_space(self.player.pos);
+
+                if available {
+                    self.shelves.push(Shelf {
+                        contents: InvItem::None,
+                        area: self.player.area(),
+                        crow_hp: 0,
+                        crow_timer: 0.0,
+                        has_scarecrow: false,
+                    });
+                    self.player.inventory = InvItem::None;
+                }
+            }
+            InvItem::Sprinkler => {
+                let available =
+                    self.player.collides(&self.farm.area) && self.free_space(self.player.pos);
+                if available {
+                    self.farm.sprinklers.push(self.player.area());
+                    self.player.inventory = InvItem::None;
+                }
+            }
+            InvItem::Fertalizer => {
+                if self.farm.try_fertilize(self.player.pos) {
+                    self.player.inventory = InvItem::None;
+                }
+            }
         }
     }
 
     fn try_interact_shelf(&mut self) -> bool {
         for shelf in &mut self.shelves {
             if self.player.collides(&shelf.area) {
-                if shelf.crow_hp > 0 {
+                if matches!(self.player.inventory, InvItem::ScareCrow) {
+                    shelf.has_scarecrow = true;
+                    shelf.crow_hp = 0;
+                    self.player.inventory = InvItem::None;
+                } else if shelf.crow_hp > 0 {
                     let damage = if matches!(self.player.inventory, InvItem::CrowBaton) {
                         3
                     } else {
@@ -229,6 +282,13 @@ impl World {
             self.truck.wants.push(&CROPS[3]);
         }
     }
+
+    /// Not on farm or store or shelf
+    fn free_space(&self, pos: Vec2) -> bool {
+        !self.truck.area.contains(pos)
+            && !self.shelves.iter().any(|s| s.area.contains(pos))
+            && !self.shops.iter().any(|s| s.area.contains(pos))
+    }
 }
 
 impl Farm {
@@ -240,8 +300,19 @@ impl Farm {
             if crop.needs_water {
                 crop.water_timer -= dt;
             } else if drought {
-                crop.needs_water = true;
-                crop.water_timer = WATER_TIME;
+                let near_sprinkler = || {
+                    for sprinkler in &self.sprinklers {
+                        let dist = (crop.area.xy() - sprinkler.xy()).length();
+                        if dist < SPRINKLER_RANGE {
+                            return true;
+                        }
+                    }
+                    false
+                };
+                if !near_sprinkler() {
+                    crop.needs_water = true;
+                    crop.water_timer = WATER_TIME;
+                }
             }
         }
 
@@ -278,9 +349,28 @@ impl Farm {
         }
     }
 
+    fn try_fertilize(&mut self, pos: Vec2) -> bool {
+        if !self.area.contains(pos) {
+            return false;
+        }
+
+        for crop in &mut self.crops {
+            if !crop.is_ripe() && crop.area.contains(pos) {
+                crop.timer = crop.kind.growth_time;
+                return true;
+            }
+        }
+        false
+    }
+
     fn available_space(&self, pos: Vec2) -> bool {
         for crop in &self.crops {
             if crop.area.contains(pos) {
+                return false;
+            }
+        }
+        for sprinkler in &self.sprinklers {
+            if sprinkler.contains(pos) {
                 return false;
             }
         }

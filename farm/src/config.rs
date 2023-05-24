@@ -1,5 +1,6 @@
 use crate::simulate::InvItem;
 use nannou::color::{GREEN, RED, WHITE, YELLOW};
+use nannou::prelude::Srgb;
 
 pub const CROP_SIZE: f32 = 30.0;
 pub const PLAYER_SPEED: f32 = 200.0;
@@ -14,6 +15,8 @@ pub const CROW_CHANCE: f32 = 0.05;
 pub const CROW_CHANCE_SCALING: f32 = 0.001;
 pub const CROW_TIME: f32 = 5.0;
 pub const CROW_MAX_HP: usize = 3;
+pub const SPRINKLER_RANGE: f32 = CROP_SIZE * 2.0;
+pub const STARTING_CASH: usize = 5;
 
 #[derive(PartialEq)]
 pub struct CropType {
@@ -21,7 +24,7 @@ pub struct CropType {
     pub growth_time: f32,
     pub seed_price: usize,
     pub sale_price: usize,
-    pub colour: nannou::prelude::Srgb<u8>,
+    pub colour: Srgb<u8>,
 }
 
 pub const CROPS: [CropType; 4] = [
@@ -61,4 +64,13 @@ pub const STARTING_SHELVES: [InvItem; 5] = [
     InvItem::None,
     InvItem::None,
     InvItem::None,
+];
+
+pub const SHOPS: [(InvItem, usize); 6] = [
+    (InvItem::Fertalizer, 10),
+    (InvItem::WateringCan, 50),
+    (InvItem::CrowBaton, 50),
+    (InvItem::Sprinkler, 100),
+    (InvItem::ScareCrow, 100),
+    (InvItem::Shelf, 50),
 ];
