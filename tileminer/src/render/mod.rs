@@ -13,7 +13,8 @@ pub fn view(app: &App, game: &Game, frame: Frame) {
         }
     }
 
-    draw.text(&format!("FPS: {}", app.fps()));
+    // draw.text(&format!("FPS: {:.0}", app.fps()))
+    //     .y(app.main_window().rect().top() - 10.0);
     draw.to_frame(app, &frame).unwrap();
 }
 
@@ -63,6 +64,10 @@ impl ScreenTransform {
         let tile_pos = (screen_pos + self.screen_offset + (self.scale / 2.0)) / self.scale;
         (tile_pos.x as isize, tile_pos.y as isize)
     }
+
+    pub fn tile_to_pixel(&self, x: usize, y: usize) -> Vec2 {
+        (Vec2::new(x as f32, y as f32) * self.scale) - self.screen_offset
+    }
 }
 
 const TILE_COUNT: usize = 50;
@@ -72,13 +77,38 @@ fn render_level(level: &Level, player_id: EntityID, draw: &Draw, window: Rect) {
 
     let cam = ScreenTransform::new(level, player_id, window);
 
-    // TODO: batch draws of identical tiles.
+    // TODO: do multiple rows at once if they're the same.
     for y in cam.top_tile..cam.bottom_tile {
+        let mut last_ty = TileType::Void;
+        let mut start_pos = cam.left_tile;
+        let mut count = 0;
         for x in cam.left_tile..cam.right_tile {
             let tile = level.get(x, y);
-            let pos = (Vec2::new(x as f32, y as f32) * cam.scale) - cam.screen_offset;
-            draw_tile(pos, cam.scale, tile, draw);
+            if tile == last_ty {
+                // Just continue the block of the same colour
+                count += 1;
+            } else {
+                // Draw the row we've built up.
+                draw_tile(
+                    cam.tile_to_pixel(start_pos, y),
+                    cam.scale,
+                    last_ty,
+                    draw,
+                    count,
+                );
+                count = 1;
+                start_pos = x;
+                last_ty = tile;
+            }
         }
+        // Draw the last part of the row.
+        draw_tile(
+            cam.tile_to_pixel(start_pos, y),
+            cam.scale,
+            last_ty,
+            draw,
+            count,
+        );
     }
 
     for entity in level.entities.values() {
@@ -103,11 +133,26 @@ fn render_level(level: &Level, player_id: EntityID, draw: &Draw, window: Rect) {
     draw.rect().color(GREEN).xy(mouse_hover).wh(cam.scale);
 }
 
-fn draw_tile(screen_pos: Vec2, size: Vec2, tile: TileType, draw: &Draw) {
+fn draw_tile(
+    screen_pos: Vec2,
+    size: Vec2,
+    tile: TileType,
+    draw: &Draw,
+    horizontal_tile_count: usize,
+) {
+    if horizontal_tile_count == 0 {
+        return;
+    }
+
     let colour = match tile {
         TileType::Empty => GRAY,
         TileType::Dirt => BROWN,
         TileType::Void => unreachable!("Tried to render outside the world."),
     };
-    draw.rect().color(colour).xy(screen_pos).wh(size);
+    let center = screen_pos + Vec2::new(size.x * (horizontal_tile_count - 1) as f32 / 2.0, 0.0);
+    draw.rect()
+        .color(colour)
+        .xy(center)
+        .h(size.y)
+        .w(size.x * horizontal_tile_count as f32);
 }
