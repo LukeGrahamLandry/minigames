@@ -3,17 +3,13 @@ use crate::player::PlayerData;
 use nannou::geom::Vec2;
 
 pub fn starting_level() -> (Level, EntityID) {
-    let mut level = Level::new(100);
-    for i in 0..300 {
+    let mut level = Level::new(50);
+    for i in 0..150 {
         level.tiles[i] = TileType::Empty;
     }
-    let player_id = EntityID::new();
-    level.entities.insert(
-        player_id,
-        Entity {
-            pos: Vec2::new(0.0, 0.0),
-            ty: EntityType::Player(PlayerData {}),
-        },
-    );
+    for i in (level.tiles.len() - 100)..level.tiles.len() {
+        level.tiles[i] = TileType::Empty;
+    }
+    let player_id = level.add_entity(Vec2::new(0.0, 0.0), EntityType::Player(PlayerData {}));
     (level, player_id)
 }

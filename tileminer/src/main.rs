@@ -1,6 +1,8 @@
 use crate::gen::starting_level;
 use crate::level::{EntityID, Level};
 use crate::render::view;
+use nannou::event::Key;
+use nannou::prelude::KeyPressed;
 use nannou::{App, Event, Frame};
 
 mod gen;
@@ -24,4 +26,17 @@ fn init(_app: &App) -> Game {
     Game::Playing { level, player_id }
 }
 
-fn handle_event(app: &App, game: &mut Game, event: Event) {}
+fn handle_event(_app: &App, game: &mut Game, event: Event) {
+    match game {
+        Game::Playing { level, .. } => match event {
+            Event::Update(update) => level.update(update.since_last.as_secs_f32()),
+            Event::WindowEvent {
+                simple: Some(KeyPressed(Key::Space)),
+                ..
+            } => {
+                level.jump();
+            }
+            _ => {}
+        },
+    }
+}
