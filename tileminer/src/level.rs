@@ -1,6 +1,7 @@
 use crate::player::PlayerData;
-use nannou::geom::Vec2;
-use nannou::state::Keys;
+use crate::render::ScreenTransform;
+use nannou::geom::{Rect, Vec2};
+use nannou::state::{Keys, Mouse};
 use nannou::winit::event::VirtualKeyCode;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -14,6 +15,7 @@ pub struct Level {
     pub entities: HashMap<EntityID, Entity>,
     wants_jump: bool,
     cringe_scratch_buffer: Vec<(EntityID, Vec2, bool, Vec2)>,
+    pub mouse_pos: (usize, usize),
 }
 
 impl Level {
@@ -25,10 +27,11 @@ impl Level {
             entities: HashMap::new(),
             wants_jump: false,
             cringe_scratch_buffer: vec![],
+            mouse_pos: (0, 0),
         }
     }
 
-    pub fn player_input(&mut self, keys: &Keys, id: &EntityID) {
+    pub fn player_input(&mut self, keys: &Keys, mouse: &Mouse, id: &EntityID, window: Rect) {
         let player = self.entities.get_mut(id).unwrap();
         const JUMP: f32 = 10.0;
         const SPEED: f32 = 10.0;
@@ -41,6 +44,14 @@ impl Level {
         if keys.down.contains(&VirtualKeyCode::D) {
             player.velocity.x = SPEED;
         }
+
+        let mouse_pos_screen = mouse.position();
+        let cam = ScreenTransform::new(self, *id, window);
+        let mouse_world_pos = cam.pixel_to_tile(mouse_pos_screen);
+        self.mouse_pos = (
+            mouse_world_pos.0.clamp(0, self.size as isize) as usize,
+            mouse_world_pos.1.clamp(0, self.size as isize) as usize,
+        );
     }
 
     pub fn update(&mut self, delta_t: f32) {

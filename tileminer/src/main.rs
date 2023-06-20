@@ -30,7 +30,7 @@ fn handle_event(app: &App, game: &mut Game, event: Event) {
     match game {
         Game::Playing { level, player_id } => {
             if let Event::Update(update) = event {
-                level.player_input(&app.keys, player_id);
+                level.player_input(&app.keys, &app.mouse, player_id, app.main_window().rect());
                 level.update(update.since_last.as_secs_f32())
             }
         }
