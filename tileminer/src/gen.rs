@@ -11,5 +11,6 @@ pub fn starting_level() -> (Level, EntityID) {
         level.tiles[i] = TileType::Empty;
     }
     let player_id = level.add_entity(Vec2::new(0.0, 0.0), EntityType::Player(PlayerData {}));
+    level.add_entity(Vec2::new(10.0, 1.0), EntityType::Box);
     (level, player_id)
 }

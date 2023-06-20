@@ -1,6 +1,6 @@
-use crate::level::{EntityID, Level, TileType};
+use crate::level::{EntityID, EntityType, Level, TileType};
 use crate::Game;
-use nannou::color::{BLACK, BLUE, BROWN, GRAY, RED, WHITE};
+use nannou::color::{BLACK, BLUE, BROWN, GRAY, ORANGE, RED, WHITE};
 use nannou::draw::primitive::polygon::{PolygonOptions, SetPolygon};
 use nannou::geom::{Point2, Rect, Vec2};
 use nannou::text::Point;
@@ -52,10 +52,22 @@ fn render_level(level: &Level, player_id: EntityID, draw: &Draw, window: Rect) {
         }
     }
 
-    draw.rect()
-        .color(BLUE)
-        .xy((player.pos * scale) - screen_offset)
-        .wh(scale);
+    for entity in level.entities.values() {
+        let colour = match entity.ty {
+            EntityType::Player(_) => BLUE,
+            EntityType::Box => ORANGE,
+        };
+        draw.rect()
+            .color(colour)
+            .xy((entity.pos * scale) - screen_offset)
+            .wh(scale);
+
+        let center = (entity.pos * scale) - screen_offset;
+        draw.line()
+            .color(WHITE)
+            .start(center)
+            .end(center + (entity.velocity * scale / 5.0));
+    }
 }
 
 fn draw_tile(screen_pos: Vec2, size: Vec2, tile: TileType, draw: &Draw) {

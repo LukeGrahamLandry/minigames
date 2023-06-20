@@ -29,16 +29,71 @@ impl Level {
         const JUMP: f32 = 15.0;
         let max_pos = Vec2::new(self.size as f32 - 1.0, self.size as f32 - 1.0);
         for entity in self.entities.values_mut() {
-            entity.velocity.y += GRAVITY * delta_t;
-            entity.pos += entity.velocity * delta_t;
-            entity.pos = entity.pos.clamp(Vec2::ZERO, max_pos);
-
             if self.wants_jump {
                 if let EntityType::Player(_) = entity.ty {
                     entity.velocity.y -= JUMP;
                     self.wants_jump = false;
+                    println!("{:?} jump", entity.id);
                 }
             }
+
+            entity.velocity.y += GRAVITY * delta_t;
+            entity.pos += entity.velocity * delta_t;
+        }
+
+        let mut stupid_fucking_allocation = vec![];
+        for id in self.entities.keys() {
+            let mut pos = self.entities.get(id).unwrap().pos;
+            let mut dirty = false;
+            for x in -1..=1 {
+                for y in -1..=1 {
+                    let check_x = pos.x as isize + x;
+                    let check_y = pos.y as isize + y;
+                    let tile = self.try_get(check_x, check_y);
+                    if tile.is_none() || tile.unwrap().is_solid() {
+                        if (pos.y > check_y as f32 && pos.y < check_y as f32 + 1.0)
+                            && (pos.x >= check_x as f32 && pos.x < check_x as f32 + 1.0)
+                        {
+                            println!("{:?} overlaps ({}, {})", pos, check_x, check_y);
+                            pos.y = pos.y.ceil();
+                            dirty = true;
+                        }
+                        if (pos.y + 1.0 > check_y as f32 && pos.y < check_y as f32)
+                            && (pos.x >= check_x as f32 && pos.x < check_x as f32 + 1.0)
+                        {
+                            println!("{:?} overlaps ({}, {})", pos, check_x, check_y);
+                            pos.y = pos.y.floor();
+                            dirty = true;
+                        }
+                        // if pos.y < check_y as f32 + 1.0 {
+                        //     pos.y = pos.y.ceil();
+                        //     dirty = true;
+                        // }
+                        // if pos.x + 1.0 > check_x as f32 {
+                        //     pos.x = pos.x.floor();
+                        //     dirty = true;
+                        // }
+                    }
+                }
+            }
+            if dirty {
+                stupid_fucking_allocation.push((*id, pos));
+            }
+        }
+
+        for (id, pos) in stupid_fucking_allocation {
+            let entity = self.entities.get_mut(&id).unwrap();
+            println!("{:?} was {:?} but snapped to {:?}", id, entity.pos, pos);
+            entity.pos = pos;
+            entity.velocity = Vec2::ZERO;
+        }
+    }
+
+    pub fn try_get(&self, x: isize, y: isize) -> Option<TileType> {
+        if x < 0 || y < 0 || x >= self.size as isize || y >= self.size as isize {
+            None
+        } else {
+            Some(self.get(x as usize, y as usize))
         }
     }
 
@@ -79,6 +134,7 @@ pub struct Entity {
 
 pub enum EntityType {
     Player(PlayerData),
+    Box,
 }
 
 #[repr(u8)]
@@ -86,6 +142,12 @@ pub enum EntityType {
 pub enum TileType {
     Empty,
     Dirt,
+}
+
+impl TileType {
+    pub fn is_solid(&self) -> bool {
+        !matches!(self, TileType::Empty)
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
