@@ -40,8 +40,8 @@ fn render_level(level: &Level, player_id: EntityID, draw: &Draw, window: Rect) {
     // Decide which area of the grid is in view.
     let top_tile = (player.pos.y - (TILE_COUNT as f32 / 2.0)).floor().max(0.0) as usize;
     let left_tile = (player.pos.x - (TILE_COUNT as f32 / 2.0)).floor().max(0.0) as usize;
-    let bottom_tile = (top_tile + TILE_COUNT).min(level.size);
-    let right_tile = (left_tile + TILE_COUNT).min(level.size);
+    let bottom_tile = (top_tile + TILE_COUNT + 1).min(level.size);
+    let right_tile = (left_tile + TILE_COUNT + 1).min(level.size);
 
     // TODO: batch draws of identical tiles.
     for x in left_tile..right_tile {
@@ -74,6 +74,7 @@ fn draw_tile(screen_pos: Vec2, size: Vec2, tile: TileType, draw: &Draw) {
     let colour = match tile {
         TileType::Empty => GRAY,
         TileType::Dirt => BROWN,
+        TileType::Void => unreachable!("Tried to render outside the world."),
     };
     draw.rect().color(colour).xy(screen_pos).wh(size);
 }

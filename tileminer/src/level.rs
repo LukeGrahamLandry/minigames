@@ -1,5 +1,7 @@
 use crate::player::PlayerData;
 use nannou::geom::Vec2;
+use nannou::state::Keys;
+use nannou::winit::event::VirtualKeyCode;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -11,6 +13,7 @@ pub struct Level {
     //       Normal hashmaps already do the obvious power of two trick to make wrapping use a bitshift instead of division.
     pub entities: HashMap<EntityID, Entity>,
     wants_jump: bool,
+    cringe_scratch_buffer: Vec<(EntityID, Vec2, bool, Vec2)>,
 }
 
 impl Level {
@@ -21,79 +24,109 @@ impl Level {
             tiles: tiles.into_boxed_slice(),
             entities: HashMap::new(),
             wants_jump: false,
+            cringe_scratch_buffer: vec![],
+        }
+    }
+
+    pub fn player_input(&mut self, keys: &Keys, id: &EntityID) {
+        let player = self.entities.get_mut(id).unwrap();
+        const JUMP: f32 = 10.0;
+        const SPEED: f32 = 10.0;
+        if keys.down.contains(&VirtualKeyCode::W) && player.is_on_ground {
+            player.velocity.y -= JUMP;
+        }
+        if keys.down.contains(&VirtualKeyCode::A) {
+            player.velocity.x = -SPEED;
+        }
+        if keys.down.contains(&VirtualKeyCode::D) {
+            player.velocity.x = SPEED;
         }
     }
 
     pub fn update(&mut self, delta_t: f32) {
-        const GRAVITY: f32 = 10.0;
-        const JUMP: f32 = 15.0;
-        let max_pos = Vec2::new(self.size as f32 - 1.0, self.size as f32 - 1.0);
+        const GRAVITY: f32 = 20.0;
+        const FRICTION: f32 = 4.0;
         for entity in self.entities.values_mut() {
-            if self.wants_jump {
-                if let EntityType::Player(_) = entity.ty {
-                    entity.velocity.y -= JUMP;
-                    self.wants_jump = false;
-                    println!("{:?} jump", entity.id);
-                }
-            }
-
             entity.velocity.y += GRAVITY * delta_t;
             entity.pos += entity.velocity * delta_t;
+            if entity.is_on_ground {
+                entity.velocity.x *= 1.0 - (FRICTION * delta_t);
+                entity.is_on_ground = false;
+            }
         }
 
-        let mut stupid_fucking_allocation = vec![];
-        for id in self.entities.keys() {
-            let mut pos = self.entities.get(id).unwrap().pos;
+        self.handle_collisions();
+    }
+
+    // This probably doesn't work if you're moving faster than a tile per frame but that seems like a non-issue.
+    fn handle_collisions(&mut self) {
+        for entity in self.entities.values() {
+            let mut pos = entity.pos;
+            let mut vel = entity.velocity;
             let mut dirty = false;
+            let mut ground = false;
             for x in -1..=1 {
                 for y in -1..=1 {
                     let check_x = pos.x as isize + x;
                     let check_y = pos.y as isize + y;
-                    let tile = self.try_get(check_x, check_y);
-                    if tile.is_none() || tile.unwrap().is_solid() {
-                        if (pos.y > check_y as f32 && pos.y < check_y as f32 + 1.0)
-                            && (pos.x >= check_x as f32 && pos.x < check_x as f32 + 1.0)
-                        {
-                            println!("{:?} overlaps ({}, {})", pos, check_x, check_y);
-                            pos.y = pos.y.ceil();
-                            dirty = true;
+                    let tile = self.checked_get(check_x, check_y);
+                    if tile.is_solid() {
+                        // In the same row as the tile.
+                        if pos.y >= check_y as f32 && pos.y < check_y as f32 + 1.0 {
+                            // Hit left
+                            if pos.x > check_x as f32 && pos.x < check_x as f32 + 1.0 {
+                                vel.x = vel.x.max(0.0);
+                                pos.x = pos.x.ceil();
+                                dirty = true;
+                            }
+
+                            // Hit right.
+                            if pos.x + 1.0 > check_x as f32 && pos.x + 1.0 < check_x as f32 + 1.0 {
+                                vel.x = vel.x.min(0.0);
+                                pos.x = pos.x.floor();
+                                dirty = true;
+                            }
                         }
-                        if (pos.y + 1.0 > check_y as f32 && pos.y < check_y as f32)
-                            && (pos.x >= check_x as f32 && pos.x < check_x as f32 + 1.0)
-                        {
-                            println!("{:?} overlaps ({}, {})", pos, check_x, check_y);
-                            pos.y = pos.y.floor();
-                            dirty = true;
+
+                        // In the same column as the tile.
+                        if pos.x >= check_x as f32 && pos.x < check_x as f32 + 1.0 {
+                            // Hitting the ceiling => snap down (+y).
+                            if pos.y > check_y as f32 && pos.y < check_y as f32 + 1.0 {
+                                vel.y = vel.y.max(0.0);
+                                pos.y = pos.y.ceil();
+                                dirty = true;
+                            }
+
+                            // Hitting the floor => snap up (-y).
+                            if pos.y + 1.0 > check_y as f32 && pos.y < check_y as f32 {
+                                vel.y = vel.y.min(0.0);
+                                pos.y = pos.y.floor();
+                                dirty = true;
+                                ground = true;
+                            }
                         }
-                        // if pos.y < check_y as f32 + 1.0 {
-                        //     pos.y = pos.y.ceil();
-                        //     dirty = true;
-                        // }
-                        // if pos.x + 1.0 > check_x as f32 {
-                        //     pos.x = pos.x.floor();
-                        //     dirty = true;
-                        // }
                     }
                 }
             }
             if dirty {
-                stupid_fucking_allocation.push((*id, pos));
+                self.cringe_scratch_buffer
+                    .push((entity.id, pos, ground, vel));
             }
         }
 
-        for (id, pos) in stupid_fucking_allocation {
+        for (id, pos, ground, vel) in self.cringe_scratch_buffer.drain(0..) {
             let entity = self.entities.get_mut(&id).unwrap();
-            println!("{:?} was {:?} but snapped to {:?}", id, entity.pos, pos);
             entity.pos = pos;
-            entity.velocity = Vec2::ZERO;
+            entity.is_on_ground = ground;
+            entity.velocity = vel;
         }
     }
 
-    pub fn try_get(&self, x: isize, y: isize) -> Option<TileType> {
+    pub fn checked_get(&self, x: isize, y: isize) -> TileType {
         if x < 0 || y < 0 || x >= self.size as isize || y >= self.size as isize {
-            None
+            TileType::Void
         } else {
-            Some(self.get(x as usize, y as usize))
+            self.get(x as usize, y as usize)
         }
     }
 
@@ -114,6 +147,7 @@ impl Level {
             pos,
             velocity: Vec2::ZERO,
             ty,
+            is_on_ground: false,
         };
         self.entities.insert(id, entity);
         id
@@ -130,6 +164,7 @@ pub struct Entity {
     pub pos: Vec2,
     pub velocity: Vec2,
     pub ty: EntityType,
+    is_on_ground: bool,
 }
 
 pub enum EntityType {
@@ -140,6 +175,7 @@ pub enum EntityType {
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum TileType {
+    Void,
     Empty,
     Dirt,
 }

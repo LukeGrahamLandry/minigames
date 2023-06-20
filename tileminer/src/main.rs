@@ -26,17 +26,13 @@ fn init(_app: &App) -> Game {
     Game::Playing { level, player_id }
 }
 
-fn handle_event(_app: &App, game: &mut Game, event: Event) {
+fn handle_event(app: &App, game: &mut Game, event: Event) {
     match game {
-        Game::Playing { level, .. } => match event {
-            Event::Update(update) => level.update(update.since_last.as_secs_f32()),
-            Event::WindowEvent {
-                simple: Some(KeyPressed(Key::Space)),
-                ..
-            } => {
-                level.jump();
+        Game::Playing { level, player_id } => {
+            if let Event::Update(update) = event {
+                level.player_input(&app.keys, player_id);
+                level.update(update.since_last.as_secs_f32())
             }
-            _ => {}
-        },
+        }
     }
 }
