@@ -49,9 +49,16 @@ impl Level {
         let cam = ScreenTransform::new(self, *id, window);
         let mouse_world_pos = cam.pixel_to_tile(mouse_pos_screen);
         self.mouse_pos = (
-            mouse_world_pos.0.clamp(0, self.size as isize) as usize,
-            mouse_world_pos.1.clamp(0, self.size as isize) as usize,
+            mouse_world_pos.0.clamp(0, self.size as isize - 1) as usize,
+            mouse_world_pos.1.clamp(0, self.size as isize - 1) as usize,
         );
+
+        if mouse.buttons.left().is_down() {
+            self.set(self.mouse_pos.0, self.mouse_pos.1, TileType::Empty);
+        }
+        if mouse.buttons.right().is_down() {
+            self.set(self.mouse_pos.0, self.mouse_pos.1, TileType::Dirt);
+        }
     }
 
     pub fn update(&mut self, delta_t: f32) {

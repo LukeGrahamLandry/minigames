@@ -13,8 +13,8 @@ pub fn view(app: &App, game: &Game, frame: Frame) {
         }
     }
 
-    // draw.text(&format!("FPS: {:.0}", app.fps()))
-    //     .y(app.main_window().rect().top() - 10.0);
+    draw.text(&format!("FPS: {:.0}", app.fps()))
+        .y(app.main_window().rect().top() - 10.0);
     draw.to_frame(app, &frame).unwrap();
 }
 
@@ -40,12 +40,14 @@ impl ScreenTransform {
             .get(&player_id)
             .expect("Tried to render level without player.");
 
-        let top = player.pos.y - (TILE_COUNT / 2) as f32;
+        let top = player.pos.y - (TILE_COUNT / 2 - 2) as f32;
         let left = player.pos.x - (TILE_COUNT / 2) as f32;
         let screen_offset = screen_offset + (Vec2::new(left, top) * scale);
 
         // Decide which area of the grid is in view.
-        let top_tile = (player.pos.y - (TILE_COUNT as f32 / 2.0)).floor().max(0.0) as usize;
+        let top_tile = (player.pos.y - (TILE_COUNT as f32 / 2.0 - 2.0))
+            .floor()
+            .max(0.0) as usize;
         let left_tile = (player.pos.x - (TILE_COUNT as f32 / 2.0)).floor().max(0.0) as usize;
         let bottom_tile = (top_tile + TILE_COUNT + 1).min(level.size);
         let right_tile = (left_tile + TILE_COUNT + 1).min(level.size);
@@ -70,7 +72,7 @@ impl ScreenTransform {
     }
 }
 
-const TILE_COUNT: usize = 50;
+const TILE_COUNT: usize = 20;
 
 fn render_level(level: &Level, player_id: EntityID, draw: &Draw, window: Rect) {
     draw.background().color(BLACK);
