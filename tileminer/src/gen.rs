@@ -1,7 +1,6 @@
 use crate::level::{Entity, EntityID, EntityType, Level, TileType};
 use crate::player::PlayerData;
-use nannou::geom::Vec2;
-use nannou::prelude::random_range;
+use glam::Vec2;
 
 pub fn starting_level() -> (Level, EntityID) {
     let mut level = Level::new(1000);
@@ -35,4 +34,9 @@ pub fn starting_level() -> (Level, EntityID) {
         EntityType::FallingTile(TileType::Sand),
     );
     (level, player_id)
+}
+
+fn random_range(min: i32, max_exclusive: i32) -> i32 {
+    debug_assert!(max_exclusive > min);
+    (rand::random::<i32>() % (max_exclusive - min)) + min
 }

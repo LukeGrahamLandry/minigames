@@ -1,9 +1,6 @@
 use crate::player::PlayerData;
-use crate::render::ScreenTransform;
-use nannou::event::ModifiersState;
-use nannou::geom::{Rect, Vec2};
-use nannou::state::{Keys, Mouse};
-use nannou::winit::event::VirtualKeyCode;
+use crate::gpu::ScreenTransform;
+use glam::Vec2;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -33,41 +30,6 @@ impl Level {
             entities: HashMap::new(),
             mouse_pos: (0, 0),
             view_scale: 1.0,
-        }
-    }
-
-    pub fn player_input(&mut self, keys: &Keys, mouse: &Mouse, id: &EntityID, window: Rect) {
-        let player = self.entities.get_mut(id).unwrap();
-        const JUMP: f32 = 10.0;
-        const SPEED: f32 = 10.0;
-        if keys.down.contains(&VirtualKeyCode::W) && player.is_on_ground {
-            player.velocity.y -= JUMP;
-        }
-        if keys.down.contains(&VirtualKeyCode::A) {
-            player.velocity.x = -SPEED;
-        }
-        if keys.down.contains(&VirtualKeyCode::D) {
-            player.velocity.x = SPEED;
-        }
-
-        let mouse_pos_screen = mouse.position();
-        let cam = ScreenTransform::new(self, *id, window);
-        let mouse_world_pos = cam.pixel_to_tile(mouse_pos_screen);
-        self.mouse_pos = (
-            mouse_world_pos.0.clamp(0, self.tiles.size - 1),
-            mouse_world_pos.1.clamp(0, self.tiles.size - 1),
-        );
-
-        if mouse.buttons.left().is_down() {
-            self.set(self.mouse_pos.0, self.mouse_pos.1, TileType::Empty);
-        }
-        if mouse.buttons.right().is_down() {
-            let tile = if keys.mods.contains(ModifiersState::SHIFT) {
-                TileType::Sand
-            } else {
-                TileType::Dirt
-            };
-            self.set(self.mouse_pos.0, self.mouse_pos.1, tile);
         }
     }
 
@@ -276,7 +238,7 @@ pub struct Entity {
     pub pos: Vec2,
     pub velocity: Vec2,
     pub ty: EntityType,
-    is_on_ground: bool,
+    pub(crate) is_on_ground: bool,
     last_good_pos: Vec2,
 }
 

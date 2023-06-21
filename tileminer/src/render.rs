@@ -1,26 +1,6 @@
+use crate::gpu::draw::{Drawing, *};
 use crate::level::{EntityID, EntityType, Level, TileType};
-use crate::Game;
-use nannou::color::{LinSrgba, Srgb, BLACK, BLUE, BROWN, GRAY, ORANGE, WHITE};
-use nannou::geom::{Rect, Vec2};
-use nannou::prelude::GREEN;
-use nannou::{App, Draw, Frame};
-
-pub fn view(app: &App, game: &Game, frame: Frame) {
-    let draw = app.draw();
-    match game {
-        Game::Playing { level, player_id } => {
-            render_level(level, *player_id, &draw, app.main_window().rect());
-            let pos = level.entities.get(player_id).unwrap().pos;
-            draw.text(&format!("({:.0}, {:.0})", pos.x, pos.y))
-                .y(app.main_window().rect().top() - 10.0);
-        }
-    }
-
-    draw.text(&format!("FPS: {:.0}", app.fps()))
-        .y(app.main_window().rect().top() - 25.0);
-
-    draw.to_frame(app, &frame).unwrap();
-}
+use glam::Vec2;
 
 pub struct ScreenTransform {
     scale: Vec2,
@@ -33,18 +13,16 @@ pub struct ScreenTransform {
 }
 
 impl ScreenTransform {
-    pub fn new(level: &Level, player_id: EntityID, window: Rect) -> ScreenTransform {
+    pub fn new(level: &Level, player_id: EntityID, window_size: Vec2) -> ScreenTransform {
         let tile_count = (BASE_TILE_COUNT as f32 * level.view_scale) as i32;
-        let tile_size = window.w() / tile_count as f32;
-        // Nannou does screen coordinates on a cartesian plane which isn't how I think about things.
-        // So flip y and shift the origin so top-left is (0, 0) and shift by half the radius of a tile so positions later are top-left instead of center.
-        let scale = Vec2::new(tile_size, -tile_size);
-        let screen_offset = -window.top_left() - (scale / 2.0);
+        let tile_size = window_size.x / tile_count as f32;
+        let scale = Vec2::new(tile_size, tile_size);
+        let screen_offset = -window_size - (scale / 2.0);
 
         let player = level
             .entities
             .get(&player_id)
-            .expect("Tried to render level without player.");
+            .expect("Tried to gpu level without player.");
 
         let top = player.pos.y - (tile_count / 2 - 2) as f32;
         let left = player.pos.x - (tile_count / 2) as f32;
@@ -85,10 +63,8 @@ impl ScreenTransform {
 
 const BASE_TILE_COUNT: i32 = 20;
 
-fn render_level(level: &Level, player_id: EntityID, draw: &Draw, window: Rect) {
-    draw.background().color(BLACK);
-
-    let cam = ScreenTransform::new(level, player_id, window);
+pub fn render_level(level: &Level, player_id: EntityID, draw: &mut Drawing, window_size: Vec2) {
+    let cam = ScreenTransform::new(level, player_id, window_size);
 
     // TODO: do multiple rows at once if they're the same.
     for y in cam.top_tile..cam.bottom_tile {
@@ -153,7 +129,7 @@ fn draw_tile(
     screen_pos: Vec2,
     size: Vec2,
     tile: TileType,
-    draw: &Draw,
+    draw: &Drawing,
     horizontal_tile_count: i32,
 ) {
     if horizontal_tile_count == 0 {
@@ -169,11 +145,11 @@ fn draw_tile(
         .w(size.x * horizontal_tile_count as f32);
 }
 
-fn tile_colour(tile: TileType) -> Srgb<u8> {
+fn tile_colour(tile: TileType) -> Colour {
     match tile {
-        TileType::Empty => GRAY,
+        TileType::Empty => LIGHT_GRAY,
         TileType::Dirt => BROWN,
         TileType::Sand => ORANGE,
-        TileType::OutOfWorld => unreachable!("Tried to render outside the world."),
+        TileType::OutOfWorld => unreachable!("Tried to gpu outside the world."),
     }
 }
