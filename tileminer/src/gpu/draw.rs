@@ -1,5 +1,5 @@
 use crate::gpu::window::WindowContext;
-use glam::Vec2;
+use glam::{Vec2, Vec4};
 use std::mem::size_of;
 use std::rc::Rc;
 use wgpu::{Buffer, BufferUsages, RenderPass};
@@ -13,16 +13,20 @@ pub struct Drawing {
 
 #[repr(C)]
 pub struct Vertex {
-    pos: Vec2,
     colour: [f32; 4],
+    pos: Vec2,
 }
 
 impl Drawing {
     pub fn new(ctx: Rc<WindowContext>) -> Drawing {
         Drawing {
+            buffer: ctx.buffer_init(
+                "drawing_vertices",
+                &[0; 10000],
+                BufferUsages::VERTEX | BufferUsages::COPY_DST,
+            ),
             ctx,
             vertices: vec![],
-            buffer: ctx.buffer_init("drawing_vertices", &[0; 10000], BufferUsages::VERTEX),
             count: 0,
         }
     }
@@ -32,7 +36,7 @@ impl Drawing {
         assert!(self.vertices.is_empty());
     }
 
-    pub fn rect(&mut self, top_left: Vec2, width: f32, height: f32, colour: Colour) {
+    pub fn rect(&mut self, mut top_left: Vec2, width: f32, height: f32, colour: Colour) {
         assert!(width > 0.0 && height > 0.0);
         let bottom_right = top_left + Vec2::new(width, height);
         let top_right = top_left + Vec2::new(width, 0.0);
@@ -47,16 +51,21 @@ impl Drawing {
         ];
         self.vertices.extend(points.into_iter().map(|pos| Vertex {
             pos,
-            colour: [1.0, 0.0, 0.0, 1.0],
+            colour: colour.to_array(),
         }));
     }
 
+    // TODO: keep the tile map vertices in a separate buffer that only gets updated when the world changes.
+    //       and do the camera offset in the shader so they dont change based on player movement.
     pub fn write_buffer(&mut self) {
         let needed = (self.vertices.len() * size_of::<Vertex>()) as u64;
         let data = slice_to_bytes(&self.vertices);
         if needed > self.buffer.size() {
-            self.ctx
-                .buffer_init("drawing_vertices", data, BufferUsages::VERTEX);
+            self.buffer = self.ctx.buffer_init(
+                "drawing_vertices",
+                data,
+                BufferUsages::VERTEX | BufferUsages::COPY_DST,
+            );
         } else {
             self.ctx.write_buffer(&self.buffer, data);
         }
@@ -74,14 +83,14 @@ fn slice_to_bytes<T: Sized>(p: &[T]) -> &[u8] {
     }
 }
 
-pub struct Colour(u64);
+pub type Colour = Vec4;
 
 // TODO: these are probably wrong << 16 | (0xFF) for alpha
-pub const BLACK: Colour = Colour(0);
-pub const RED: Colour = Colour(16711680);
-pub const BLUE: Colour = Colour(255);
-pub const LIGHT_GRAY: Colour = Colour(12238006);
-pub const ORANGE: Colour = Colour(16751616);
-pub const BROWN: Colour = Colour(9587487);
-pub const GREEN: Colour = Colour(38446);
-pub const WHITE: Colour = Colour(16777215);
+pub const BLACK: Colour = Vec4::new(0.0, 0.0, 0.0, 1.0);
+pub const RED: Colour = Vec4::new(1.0, 0.0, 0.0, 1.0);
+pub const BLUE: Colour = Vec4::new(0.0, 0.0, 1.0, 1.0);
+pub const LIGHT_GRAY: Colour = Vec4::new(0.3, 0.3, 0.3, 1.0);
+pub const ORANGE: Colour = Vec4::new(1.0, 0.2, 0.0, 1.0);
+pub const BROWN: Colour = Vec4::new(0.6, 0.35, 0.2, 1.0);
+pub const GREEN: Colour = Vec4::new(0.0, 1.0, 0.0, 1.0);
+pub const WHITE: Colour = Vec4::new(1.0, 1.0, 1.0, 1.0);

@@ -17,24 +17,26 @@ impl ScreenTransform {
         let tile_count = (BASE_TILE_COUNT as f32 * level.view_scale) as i32;
         let tile_size = window_size.x / tile_count as f32;
         let scale = Vec2::new(tile_size, tile_size);
-        let screen_offset = -window_size - (scale / 2.0);
+        let screen_offset = Vec2::ZERO;
 
         let player = level
             .entities
             .get(&player_id)
-            .expect("Tried to gpu level without player.");
+            .expect("Tried to render level without player.");
 
         let top = player.pos.y - (tile_count / 2 - 2) as f32;
-        let left = player.pos.x - (tile_count / 2) as f32;
+        let left = player.pos.x - (tile_count / 2 - 2) as f32;
         let screen_offset = screen_offset + (Vec2::new(left, top) * scale);
 
         // Decide which area of the grid is in view.
         let top_tile = (player.pos.y - (tile_count as f32 / 2.0 - 2.0))
             .floor()
             .max(0.0) as i32;
-        let left_tile = (player.pos.x - (tile_count as f32 / 2.0)).floor().max(0.0) as i32;
-        let bottom_tile = (top_tile + tile_count).min(level.tiles.size);
-        let right_tile = (left_tile + tile_count).min(level.tiles.size);
+        let left_tile = (player.pos.x - (tile_count as f32 / 2.0 - 2.0))
+            .floor()
+            .max(0.0) as i32;
+        let bottom_tile = (top_tile + tile_count + 5).min(level.tiles.size);
+        let right_tile = (left_tile + tile_count + 5).min(level.tiles.size);
 
         ScreenTransform {
             top_tile,
@@ -48,7 +50,7 @@ impl ScreenTransform {
     }
 
     pub fn pixel_to_tile(&self, screen_pos: Vec2) -> (i32, i32) {
-        let tile_pos = (screen_pos + self.screen_offset + (self.scale / 2.0)) / self.scale;
+        let tile_pos = (screen_pos + self.screen_offset/* + (self.scale / 2.0) */) / self.scale;
         (tile_pos.x as i32, tile_pos.y as i32)
     }
 
@@ -107,42 +109,31 @@ pub fn render_level(level: &Level, player_id: EntityID, draw: &mut Drawing, wind
         };
 
         let center = cam.world_to_pixel(entity.pos);
-        draw.rect().color(colour).xy(center).wh(cam.scale);
+        draw.rect(center, cam.scale.x, cam.scale.y, colour);
 
-        draw.line()
-            .color(WHITE)
-            .start(center)
-            .end(center + (entity.velocity * cam.scale / 5.0));
+        // draw.line()
+        //     .color(WHITE)
+        //     .start(center)
+        //     .end(center + (entity.velocity * cam.scale / 5.0));
     }
 
-    let mouse_hover = (Vec2::new(level.mouse_pos.0 as f32, level.mouse_pos.1 as f32) * cam.scale)
-        - cam.screen_offset;
-    draw.rect()
-        .color(LinSrgba::new(0.0, 0.0, 0.0, 0.0))
-        .xy(mouse_hover)
-        .wh(cam.scale)
-        .stroke(GREEN)
-        .stroke_weight(3.0);
+    let mouse_hover = cam.tile_to_pixel(level.mouse_pos.0, level.mouse_pos.1);
+    draw.rect(mouse_hover, cam.scale.x, cam.scale.y, GREEN);
 }
 
 fn draw_tile(
     screen_pos: Vec2,
     size: Vec2,
     tile: TileType,
-    draw: &Drawing,
+    draw: &mut Drawing,
     horizontal_tile_count: i32,
 ) {
     if horizontal_tile_count == 0 {
         return;
     }
 
-    let center = screen_pos + Vec2::new(size.x * (horizontal_tile_count - 1) as f32 / 2.0, 0.0);
-    // TODO: the way they do this seems really stupid. this is like 8 hash table lookups somehow. even just call map_ty myself once
-    draw.rect()
-        .color(tile_colour(tile))
-        .xy(center)
-        .h(size.y)
-        .w(size.x * horizontal_tile_count as f32);
+    let width = size.x * horizontal_tile_count as f32;
+    draw.rect(screen_pos, width, size.y, tile_colour(tile));
 }
 
 fn tile_colour(tile: TileType) -> Colour {

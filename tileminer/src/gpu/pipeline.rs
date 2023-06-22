@@ -161,7 +161,7 @@ impl WindowContext {
                     topology: PrimitiveTopology::TriangleList,
                     strip_index_format: None,
                     front_face: FrontFace::Ccw,
-                    cull_mode: Some(Face::Back),
+                    cull_mode: None, // Some(Face::Back),
                     polygon_mode: PolygonMode::Fill,
                     unclipped_depth: false,
                     conservative: false,
@@ -193,9 +193,9 @@ impl WindowContext {
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color {
-                        r: 0.1,
-                        g: 0.2,
-                        b: 0.3,
+                        r: 0.0,
+                        g: 0.0,
+                        b: 0.0,
                         a: 1.0,
                     }),
                     store: true,

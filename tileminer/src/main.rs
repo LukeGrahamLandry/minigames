@@ -1,10 +1,11 @@
 use crate::gen::starting_level;
-use crate::gpu::draw::{Drawing, Vertex};
+use crate::gpu::draw::{Drawing, Vertex, WHITE};
 use crate::gpu::window::{App, WindowContext};
 use crate::level::{EntityID, Level, TileType};
 use crate::render::{render_level, ScreenTransform};
 use glam::Vec2;
 use std::rc::Rc;
+use std::time::Instant;
 use wgpu::{BufferBindingType, RenderPipeline, ShaderStages, SurfaceError};
 use winit::dpi::PhysicalSize;
 use winit::event::{
@@ -31,6 +32,8 @@ pub struct Game {
     right: bool,
     draw: Drawing,
     pipeline: RenderPipeline,
+    mouse_pos_screen: Vec2,
+    prev: Instant,
 }
 
 impl App for Game {
@@ -40,7 +43,7 @@ impl App for Game {
         let vertex_layout = wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x4],
+            attributes: &wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x2],
         };
         let pipeline = ctx.render_pipeline(
             "drawing",
@@ -57,6 +60,8 @@ impl App for Game {
             left: false,
             right: false,
             pipeline,
+            mouse_pos_screen: Default::default(),
+            prev: Instant::now(),
         }
     }
 
@@ -65,7 +70,7 @@ impl App for Game {
             WindowEvent::MouseWheel { delta, .. } => {
                 if let MouseScrollDelta::PixelDelta(pos) = delta {
                     self.level.view_scale =
-                        (self.level.view_scale + (pos.y * 0.01) as f32).clamp(0.25, 100.0);
+                        (self.level.view_scale + (pos.y * 0.01) as f32).clamp(0.25, 10000.0);
                 } else {
                     todo!();
                 }
@@ -87,9 +92,10 @@ impl App for Game {
                 _ => {}
             },
             WindowEvent::CursorMoved { position, .. } => {
-                let mouse_pos_screen = Vec2::new(position.x as f32, position.y as f32);
+                // let position = position.to_logical::<f32>(self.ctx.window.scale_factor());
+                self.mouse_pos_screen = Vec2::new(position.x as f32, position.y as f32);
                 let cam = ScreenTransform::new(&self.level, self.player_id, self.ctx.window_size());
-                let mouse_world_pos = cam.pixel_to_tile(mouse_pos_screen);
+                let mouse_world_pos = cam.pixel_to_tile(self.mouse_pos_screen);
                 self.level.mouse_pos = (
                     mouse_world_pos.0.clamp(0, self.level.tiles.size - 1),
                     mouse_world_pos.1.clamp(0, self.level.tiles.size - 1),
@@ -140,7 +146,8 @@ impl App for Game {
             player.velocity.x = SPEED;
         }
 
-        self.level.update(self.ctx.timer.borrow().delta());
+        self.level.update(self.prev.elapsed().as_secs_f32());
+        self.prev = Instant::now();
     }
 
     fn render(&mut self) -> Result<(), SurfaceError> {
@@ -161,6 +168,7 @@ impl App for Game {
                 &mut self.draw,
                 self.ctx.window_size(),
             );
+            self.draw.rect(self.mouse_pos_screen, 50.0, 50.0, WHITE);
             self.draw.write_buffer();
             // This slice may include invalid vertices from previous frames but the only the correct range is drawn below.
             render_pass.set_vertex_buffer(0, self.draw.buffer.slice(..));
@@ -168,6 +176,7 @@ impl App for Game {
         }
 
         self.ctx.queue.submit([encoder.finish()].into_iter());
+        output.present();
 
         Ok(())
     }

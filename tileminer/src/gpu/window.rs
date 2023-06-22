@@ -34,10 +34,6 @@ impl FrameTimer {
         }
     }
 
-    pub fn delta(&self) -> f32 {
-        self.last.elapsed().as_secs_f32()
-    }
-
     pub fn update(&mut self) {
         let now = Instant::now();
         self.micro_seconds += self.last.elapsed().as_micros();
@@ -248,10 +244,8 @@ impl WindowContext {
     }
 
     pub fn window_size(&self) -> Vec2 {
-        let size = self
-            .window
-            .inner_size()
-            .to_logical::<f32>(self.window.scale_factor());
-        Vec2::new(size.width, size.height)
+        let size = self.window.inner_size();
+        // .to_logical::<f32>(self.window.scale_factor());
+        Vec2::new(size.width as f32, size.height as f32)
     }
 }
