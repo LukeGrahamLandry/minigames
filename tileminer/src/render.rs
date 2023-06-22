@@ -104,6 +104,7 @@ pub fn render_level(level: &Level, player_id: EntityID, draw: &mut Drawing, wind
         let colour = match entity.ty {
             EntityType::Player(_) => BLUE,
             EntityType::FallingTile(tile) => tile_colour(tile),
+            EntityType::Portal { .. } => PURPLE, // TODO: animate slight pulsing scale
             EntityType::ExplosionParticle { scale, prev } => {
                 // Shrink towards the center of the square instead of the top left.
                 let pos = cam.world_to_pixel(entity.pos) + (cam.scale * (1.0 - scale) / 2.0);

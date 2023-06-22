@@ -34,6 +34,30 @@ impl Level {
 
     // TODO: iterating over entities several times is dumb.
     pub fn update(&mut self, delta_t: f32) {
+        // TODO: damn bro why your O so quadratic. at the very least collect all portals first.
+        //       Could make some sort of quad-tree thing for collisions in general?
+        let mut portal_moves = vec![];
+        for id in self.entities.keys() {
+            let entity = self.entities.get(id).unwrap();
+            if !entity.ty.has_collisions() {
+                continue;
+            }
+            for check in self.entities.keys() {
+                let e = self.entities.get(check).unwrap();
+                if let EntityType::Portal { target } = e.ty {
+                    if entity.pos.distance_squared(e.pos) < 1.0 {
+                        portal_moves.push((*id, target));
+                        break;
+                    }
+                }
+            }
+        }
+        for (id, target) in portal_moves {
+            let e = self.entities.get_mut(&id).unwrap();
+            e.pos = target;
+            e.velocity = Vec2::ZERO; // avoids you jumping back through the portal
+        }
+
         const GRAVITY: f32 = 20.0;
         const FRICTION: f32 = 4.0;
         for entity in self.entities.values_mut() {
@@ -243,7 +267,7 @@ impl TileMap {
         }
     }
 
-    fn in_bounds(&self, x: i32, y: i32) -> bool {
+    pub(crate) fn in_bounds(&self, x: i32, y: i32) -> bool {
         !(x < 0 || y < 0 || x >= self.size || y >= self.size)
     }
 
@@ -292,7 +316,7 @@ pub struct Entity {
     pub pos: Vec2,
     pub velocity: Vec2,
     pub ty: EntityType,
-    pub(crate) is_on_ground: bool,
+    pub is_on_ground: bool,
     last_good_pos: Vec2,
 }
 
@@ -300,15 +324,22 @@ pub enum EntityType {
     Player(PlayerData),
     FallingTile(TileType),
     ExplosionParticle { prev: TileType, scale: f32 },
+    Portal { target: Vec2 },
 }
 
 impl EntityType {
     pub fn has_collisions(&self) -> bool {
-        !matches!(self, EntityType::ExplosionParticle { .. })
+        !matches!(
+            self,
+            EntityType::ExplosionParticle { .. } | EntityType::Portal { .. }
+        )
     }
 
     pub fn has_gravity(&self) -> bool {
-        !matches!(self, EntityType::ExplosionParticle { .. })
+        !matches!(
+            self,
+            EntityType::ExplosionParticle { .. } | EntityType::Portal { .. }
+        )
     }
 }
 

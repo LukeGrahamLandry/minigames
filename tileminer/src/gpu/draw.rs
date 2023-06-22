@@ -94,3 +94,4 @@ pub const GREEN: Colour = Vec4::new(0.0, 1.0, 0.0, 1.0);
 pub const WHITE: Colour = Vec4::new(1.0, 1.0, 1.0, 1.0);
 pub const RED: Colour = Vec4::new(1.0, 0.0, 0.0, 1.0);
 pub const DARK_RED: Colour = Vec4::new(0.6, 0.6, 0.6, 1.0);
+pub const PURPLE: Colour = Vec4::new(0.5, 0.0, 0.5, 1.0);
