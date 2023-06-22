@@ -1,17 +1,18 @@
-use crate::level::{Entity, EntityID, EntityType, Level, TileType};
+use crate::level::{EntityID, EntityType, Level, TileType};
 use crate::player::PlayerData;
 use glam::Vec2;
 
 pub fn starting_level() -> (Level, EntityID) {
-    let mut level = Level::new(1000);
-    for i in 0..4000 {
+    let w = 1000;
+    let mut level = Level::new(w);
+    for i in 0..(w * 4) {
         level.tiles.tiles[i] = TileType::Empty;
     }
-    for i in 0..6 {
+    for i in 0..4 {
         level.tiles.raw_set(20, i, TileType::Dirt);
     }
 
-    for _ in 0..1000 {
+    for _ in 0..w {
         let mut width = 20;
         let height = 10;
         let xx = random_range(0, level.tiles.size);
@@ -27,6 +28,14 @@ pub fn starting_level() -> (Level, EntityID) {
             }
             width += random_range(-7, 7);
         }
+    }
+
+    for _ in 0..100000 {
+        let x = random_range(0, level.tiles.size);
+        let y = random_range(0, level.tiles.size);
+        level
+            .tiles
+            .set_silently_fail(x, y, TileType::ExplodingBarrel);
     }
     let player_id = level.add_entity(Vec2::new(3.0, 0.0), EntityType::Player(PlayerData {}));
     level.add_entity(

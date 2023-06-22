@@ -78,7 +78,7 @@ pub fn render_simple(world: &World, draw: &Draw) {
             draw.rect()
                 .color(ORANGE)
                 .xy(shelf.area.xy() + Vec2::new(CROP_SIZE / 2.0, CROP_SIZE / 2.0))
-                .wh(shelf.area.wh() * (0.15 * (shelf.crow_hp as f32 / 2.0) + 0.1))
+                .wh(shelf.area.wh() * (0.15x * (shelf.crow_hp as f32 / 2.0) + 0.1))
                 .z(2.0); // hazard modifiers render above the player
         }
 

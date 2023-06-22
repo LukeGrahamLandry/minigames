@@ -32,12 +32,15 @@ impl Level {
         }
     }
 
+    // TODO: iterating over entities several times is dumb.
     pub fn update(&mut self, delta_t: f32) {
         const GRAVITY: f32 = 20.0;
         const FRICTION: f32 = 4.0;
         for entity in self.entities.values_mut() {
             entity.last_good_pos = entity.pos;
-            entity.velocity.y += GRAVITY * delta_t;
+            if entity.ty.has_gravity() {
+                entity.velocity.y += GRAVITY * delta_t;
+            }
             entity.pos += entity.velocity * delta_t;
             if entity.is_on_ground {
                 entity.velocity.x *= 1.0 - (FRICTION * delta_t);
@@ -50,6 +53,15 @@ impl Level {
             }
         }
 
+        self.entities.retain(|_, entity| {
+            if let EntityType::ExplosionParticle { scale, .. } = &mut entity.ty {
+                *scale -= delta_t * 3.0;
+                return *scale > 0.0;
+            }
+
+            true
+        });
+
         self.handle_collisions();
     }
 
@@ -57,6 +69,10 @@ impl Level {
     fn handle_collisions(&mut self) {
         let mut falling_done = vec![];
         for entity in self.entities.values_mut() {
+            if !entity.ty.has_collisions() {
+                continue;
+            }
+
             let mut pos = entity.pos;
             let mut vel = entity.velocity;
             let mut dirty = false;
@@ -121,14 +137,20 @@ impl Level {
         for id in falling_done {
             let entity = self.entities.remove(&id).unwrap();
             match entity.ty {
-                EntityType::FallingTile(tile) => {
+                EntityType::FallingTile(falling) => {
                     let x = entity.pos.x as i32;
                     let y = entity.pos.y as i32;
                     if self.tiles.get(x, y).is_solid() {
                         // Multiple landed in the same place on the same frame, just let the collision logic resolve it and try again next frame.
                         self.add_entity(entity.pos, entity.ty);
                     } else {
-                        self.set(x, y, tile);
+                        self.set(x, y, falling);
+                        if falling == TileType::ExplodingBarrel {
+                            self.explode(x, y, 1);
+                        }
+                        if self.tiles.get(x, y + 1) == TileType::ExplodingBarrel {
+                            self.explode(x, y + 1, 1);
+                        }
                         // Let stuff get snapped away from the new block. IDK if this feels right.
                         self.handle_collisions();
                     }
@@ -142,7 +164,7 @@ impl Level {
         for x in (center_x - 1)..=(center_x + 1) {
             for y in (center_y - 1)..=(center_y + 1) {
                 let tile = self.tiles.get(x, y);
-                if tile == TileType::Sand && !self.tiles.get(x, y + 1).is_solid() {
+                if tile.has_gravity() && !self.tiles.get(x, y + 1).is_solid() {
                     self.add_entity(Vec2::new(x as f32, y as f32), EntityType::FallingTile(tile));
                     self.set(x, y, TileType::Empty);
                 }
@@ -168,6 +190,35 @@ impl Level {
         self.entities.insert(id, entity);
         id
     }
+
+    fn explode(&mut self, start_x: i32, start_y: i32, r: i32) {
+        assert!(r > 0);
+        for dx in -r..=r {
+            for dy in -r..=r {
+                let x = start_x + dx;
+                let y = start_y + dy;
+                if !self.tiles.in_bounds(x, y) {
+                    continue;
+                }
+                let tile = self.tiles.get(x, y);
+                self.set(x, y, TileType::Empty);
+
+                // Prevent empties rendering as background colour over interesting blocks when explosions overlap.
+                if tile != TileType::Empty {
+                    self.add_entity(
+                        Vec2::new(x as f32, y as f32),
+                        EntityType::ExplosionParticle {
+                            scale: 1.0,
+                            prev: tile,
+                        },
+                    );
+                }
+                if tile == TileType::ExplodingBarrel {
+                    self.explode(x, y, 1);
+                }
+            }
+        }
+    }
 }
 
 impl TileMap {
@@ -181,15 +232,19 @@ impl TileMap {
     }
 
     pub fn raw_set(&mut self, x: i32, y: i32, tile: TileType) {
+        assert!(self.in_bounds(x, y));
         let index = x + (y * self.size);
         self.tiles[index as usize] = tile;
     }
 
     pub fn set_silently_fail(&mut self, x: i32, y: i32, tile: TileType) {
-        if x < 0 || y < 0 || x >= self.size || y >= self.size {
-            return;
+        if self.in_bounds(x, y) {
+            self.raw_set(x, y, tile);
         }
-        self.raw_set(x, y, tile);
+    }
+
+    fn in_bounds(&self, x: i32, y: i32) -> bool {
+        !(x < 0 || y < 0 || x >= self.size || y >= self.size)
     }
 
     fn is_in_wall(&self, entity: &Entity) -> bool {
@@ -244,6 +299,17 @@ pub struct Entity {
 pub enum EntityType {
     Player(PlayerData),
     FallingTile(TileType),
+    ExplosionParticle { prev: TileType, scale: f32 },
+}
+
+impl EntityType {
+    pub fn has_collisions(&self) -> bool {
+        !matches!(self, EntityType::ExplosionParticle { .. })
+    }
+
+    pub fn has_gravity(&self) -> bool {
+        !matches!(self, EntityType::ExplosionParticle { .. })
+    }
 }
 
 #[repr(u8)]
@@ -253,11 +319,16 @@ pub enum TileType {
     Empty,
     Dirt,
     Sand,
+    ExplodingBarrel,
 }
 
 impl TileType {
     pub fn is_solid(&self) -> bool {
         !matches!(self, TileType::Empty)
+    }
+
+    pub fn has_gravity(&self) -> bool {
+        matches!(self, TileType::Sand | TileType::ExplodingBarrel)
     }
 }
 

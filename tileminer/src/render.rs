@@ -9,7 +9,6 @@ pub struct ScreenTransform {
     bottom_tile: i32,
     left_tile: i32,
     top_tile: i32,
-    tile_count: i32,
 }
 
 impl ScreenTransform {
@@ -45,7 +44,6 @@ impl ScreenTransform {
             right_tile,
             screen_offset,
             scale,
-            tile_count,
         }
     }
 
@@ -106,10 +104,25 @@ pub fn render_level(level: &Level, player_id: EntityID, draw: &mut Drawing, wind
         let colour = match entity.ty {
             EntityType::Player(_) => BLUE,
             EntityType::FallingTile(tile) => tile_colour(tile),
+            EntityType::ExplosionParticle { scale, prev } => {
+                // Shrink towards the center of the square instead of the top left.
+                let pos = cam.world_to_pixel(entity.pos) + (cam.scale * (1.0 - scale) / 2.0);
+                draw.rect(
+                    pos,
+                    cam.scale.x * scale,
+                    cam.scale.y * scale,
+                    tile_colour(prev),
+                );
+                continue;
+            }
         };
 
-        let center = cam.world_to_pixel(entity.pos);
-        draw.rect(center, cam.scale.x, cam.scale.y, colour);
+        draw.rect(
+            cam.world_to_pixel(entity.pos),
+            cam.scale.x,
+            cam.scale.y,
+            colour,
+        );
 
         // draw.line()
         //     .color(WHITE)
@@ -142,5 +155,6 @@ fn tile_colour(tile: TileType) -> Colour {
         TileType::Dirt => BROWN,
         TileType::Sand => ORANGE,
         TileType::OutOfWorld => unreachable!("Tried to gpu outside the world."),
+        TileType::ExplodingBarrel => RED,
     }
 }

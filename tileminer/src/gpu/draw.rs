@@ -2,7 +2,7 @@ use crate::gpu::window::WindowContext;
 use glam::{Vec2, Vec4};
 use std::mem::size_of;
 use std::rc::Rc;
-use wgpu::{Buffer, BufferUsages, RenderPass};
+use wgpu::{Buffer, BufferUsages};
 
 pub struct Drawing {
     ctx: Rc<WindowContext>,
@@ -11,6 +11,7 @@ pub struct Drawing {
     pub count: u32,
 }
 
+// TODO: including colour 6 times for one rect is dumb. index buffer?
 #[repr(C)]
 pub struct Vertex {
     colour: [f32; 4],
@@ -85,12 +86,11 @@ fn slice_to_bytes<T: Sized>(p: &[T]) -> &[u8] {
 
 pub type Colour = Vec4;
 
-// TODO: these are probably wrong << 16 | (0xFF) for alpha
-pub const BLACK: Colour = Vec4::new(0.0, 0.0, 0.0, 1.0);
-pub const RED: Colour = Vec4::new(1.0, 0.0, 0.0, 1.0);
 pub const BLUE: Colour = Vec4::new(0.0, 0.0, 1.0, 1.0);
 pub const LIGHT_GRAY: Colour = Vec4::new(0.3, 0.3, 0.3, 1.0);
-pub const ORANGE: Colour = Vec4::new(1.0, 0.2, 0.0, 1.0);
-pub const BROWN: Colour = Vec4::new(0.6, 0.35, 0.2, 1.0);
+pub const ORANGE: Colour = Vec4::new(1.0, 0.38, 0.0, 1.0);
+pub const BROWN: Colour = Vec4::new(0.26, 0.04, 0.0, 1.0);
 pub const GREEN: Colour = Vec4::new(0.0, 1.0, 0.0, 1.0);
 pub const WHITE: Colour = Vec4::new(1.0, 1.0, 1.0, 1.0);
+pub const RED: Colour = Vec4::new(1.0, 0.0, 0.0, 1.0);
+pub const DARK_RED: Colour = Vec4::new(0.6, 0.6, 0.6, 1.0);

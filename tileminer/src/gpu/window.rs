@@ -7,7 +7,7 @@ use wgpu::PresentMode;
 use winit::dpi::PhysicalSize;
 use winit::event::{DeviceEvent, ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
-use winit::window::{CursorGrabMode, Window, WindowBuilder};
+use winit::window::{Window, WindowBuilder};
 
 pub struct WindowContext {
     pub surface: wgpu::Surface,
@@ -243,6 +243,7 @@ impl WindowContext {
         }
     }
 
+    // TODO: figure this out. scaling is wrong on external monitor
     pub fn window_size(&self) -> Vec2 {
         let size = self.window.inner_size();
         // .to_logical::<f32>(self.window.scale_factor());

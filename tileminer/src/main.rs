@@ -6,7 +6,7 @@ use crate::render::{render_level, ScreenTransform};
 use glam::Vec2;
 use std::rc::Rc;
 use std::time::Instant;
-use wgpu::{BufferBindingType, RenderPipeline, ShaderStages, SurfaceError};
+use wgpu::{RenderPipeline, SurfaceError};
 use winit::dpi::PhysicalSize;
 use winit::event::{
     DeviceEvent, ElementState, ModifiersState, MouseButton, MouseScrollDelta, VirtualKeyCode,
@@ -134,8 +134,9 @@ impl App for Game {
         false
     }
 
-    fn handle_device_event(&mut self, event: &DeviceEvent) {}
+    fn handle_device_event(&mut self, _event: &DeviceEvent) {}
 
+    // TODO: allow holding down mouse to edit like before instead of doing it in the event handler.
     fn update(&mut self) {
         const SPEED: f32 = 10.0;
         let player = self.level.entities.get_mut(&self.player_id).unwrap();
@@ -181,5 +182,5 @@ impl App for Game {
         Ok(())
     }
 
-    fn resize(&mut self, new_size: PhysicalSize<u32>) {}
+    fn resize(&mut self, _new_size: PhysicalSize<u32>) {}
 }
