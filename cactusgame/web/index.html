@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+<head>
+    <title>Cactus Game</title>
+</head>
+<body style="background: #2d2d2d; text-align: center;">
+    <canvas id="game" width=800 height=600 style="background: #656565;"></canvas>
+    <div id="loading"> Loading... </div>
+    <script src="game.js"></script>
+    <div id="editor" style="display: none;">
+        <br>
+        <b style="color: white;"> Dev Tools </b> <br>
+        <button onclick="downloadCurrentLevel()"> Download Level </button>
+        <button onclick="loadToCurrentLevel()"> Load Level File </button>
+        <button onclick="pauseGame()"> Pause </button>
+        <button onclick="resumeGame()"> Resume </button>
+        <select id="objecttype"></select>
+    </div>
+    <script src="editor.js"></script>
+</body>
+</html>

@@ -217,6 +217,7 @@ impl Level {
 
     fn explode(&mut self, start_x: i32, start_y: i32, r: i32) {
         assert!(r > 0);
+        self.set(start_x, start_y, TileType::Empty);
         for dx in -r..=r {
             for dy in -r..=r {
                 let x = start_x + dx;
@@ -226,9 +227,12 @@ impl Level {
                 }
                 let tile = self.tiles.get(x, y);
                 self.set(x, y, TileType::Empty);
-
+                // The chain reactions are more fun if they drop instead of exploding in place so they cover more area.
+                if tile == TileType::ExplodingBarrel {
+                    self.add_entity(Vec2::new(x as f32, y as f32), EntityType::FallingTile(tile));
+                }
                 // Prevent empties rendering as background colour over interesting blocks when explosions overlap.
-                if tile != TileType::Empty {
+                else if tile != TileType::Empty {
                     self.add_entity(
                         Vec2::new(x as f32, y as f32),
                         EntityType::ExplosionParticle {
@@ -236,9 +240,6 @@ impl Level {
                             prev: tile,
                         },
                     );
-                }
-                if tile == TileType::ExplodingBarrel {
-                    self.explode(x, y, 1);
                 }
             }
         }
